@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My 3D Game</title>
+    <title>Backrooms 3D</title>
     <style>
         body { margin: 0; overflow: hidden; }
     </style>
@@ -16,34 +16,85 @@
 
         // Camera setup
         var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 1.6, 5); // Set camera slightly above the ground (realistic height)
 
         // Renderer setup
         var renderer = new THREE.WebGLRenderer();
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Create a cube
-        var geometry = new THREE.BoxGeometry();
-        var material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-        var cube = new THREE.Mesh(geometry, material);
-        scene.add(cube);
+        // Lighting setup
+        var ambientLight = new THREE.AmbientLight(0x404040); // Soft white light
+        scene.add(ambientLight);
 
-        // Set camera position
-        camera.position.z = 5;
+        var directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(5, 10, 5).normalize();
+        scene.add(directionalLight);
+
+        // Create the hallway (a simple box for the floor and walls)
+        function createWall(width, height, depth, x, y, z, color) {
+            var geometry = new THREE.BoxGeometry(width, height, depth);
+            var material = new THREE.MeshBasicMaterial({ color: color });
+            var wall = new THREE.Mesh(geometry, material);
+            wall.position.set(x, y, z);
+            return wall;
+        }
+
+        // Create walls and floor for the hallway
+        var floor = createWall(20, 1, 20, 0, 0, 0, 0x999999); // Floor
+        var leftWall = createWall(1, 5, 20, -10, 2.5, 0, 0xdddddd); // Left Wall
+        var rightWall = createWall(1, 5, 20, 10, 2.5, 0, 0xdddddd); // Right Wall
+        var ceiling = createWall(20, 1, 20, 0, 5, 0, 0xaaaaaa); // Ceiling
+        scene.add(floor, leftWall, rightWall, ceiling);
+
+        // Setup movement (WASD keys)
+        var speed = 0.1;
+        var moveForward = false;
+        var moveBackward = false;
+        var moveLeft = false;
+        var moveRight = false;
+
+        function onKeyDown(event) {
+            switch (event.code) {
+                case 'KeyW': moveForward = true; break;
+                case 'KeyS': moveBackward = true; break;
+                case 'KeyA': moveLeft = true; break;
+                case 'KeyD': moveRight = true; break;
+            }
+        }
+
+        function onKeyUp(event) {
+            switch (event.code) {
+                case 'KeyW': moveForward = false; break;
+                case 'KeyS': moveBackward = false; break;
+                case 'KeyA': moveLeft = false; break;
+                case 'KeyD': moveRight = false; break;
+            }
+        }
+
+        document.addEventListener('keydown', onKeyDown, false);
+        document.addEventListener('keyup', onKeyUp, false);
+
+        // Movement logic
+        function moveCamera() {
+            if (moveForward) camera.position.z -= speed;
+            if (moveBackward) camera.position.z += speed;
+            if (moveLeft) camera.position.x -= speed;
+            if (moveRight) camera.position.x += speed;
+        }
 
         // Animate the scene
         var animate = function () {
             requestAnimationFrame(animate);
 
-            // Rotate the cube
-            cube.rotation.x += 0.01;
-            cube.rotation.y += 0.01;
+            // Move the camera based on keypresses
+            moveCamera();
 
             // Render the scene
             renderer.render(scene, camera);
         };
 
-        // Start the animation
+        // Start the animation loop
         animate();
     </script>
 </body>
