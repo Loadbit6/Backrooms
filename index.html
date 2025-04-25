@@ -6,23 +6,11 @@
   <style>
     body { margin: 0; overflow: hidden; }
     canvas { display: block; }
-    #startBtn {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      padding: 20px 40px;
-      font-size: 24px;
-      background: #ffd;
-      border: 2px solid #aaa;
-      cursor: pointer;
-      z-index: 999;
-    }
   </style>
 </head>
 <body>
-  <button id="startBtn">Enter the Backrooms</button>
-
+  <!-- No button needed, game will load immediately -->
+  
   <!-- Local file paths -->
   <script src="three.min.js"></script>
   <script src="PointerLockControls.js"></script>
@@ -72,11 +60,11 @@
       // Controls
       controls = new THREE.PointerLockControls(camera, document.body);
 
-      const button = document.getElementById('startBtn');
-      button.addEventListener('click', () => {
-        alert("Button clicked!"); // Show an alert to check if the button is working
-        document.body.requestPointerLock = document.body.requestPointerLock || document.body.mozRequestPointerLock;
+      // Try to lock the pointer as soon as the page is loaded
+      document.body.requestPointerLock = document.body.requestPointerLock || document.body.mozRequestPointerLock;
 
+      // Automatically request pointer lock when the page is clicked
+      document.body.addEventListener('click', () => {
         if (document.body.requestPointerLock) {
           document.body.requestPointerLock();
         }
@@ -87,19 +75,11 @@
 
       function onPointerLockChange() {
         if (document.pointerLockElement === document.body || document.mozPointerLockElement === document.body) {
-          button.style.display = 'none'; // Hide the button when locked
+          console.log("Pointer locked");
         } else {
-          button.style.display = 'block'; // Show the button when unlocked
+          console.log("Pointer unlocked");
         }
       }
-
-      controls.addEventListener('lock', () => {
-        button.style.display = 'none';
-      });
-
-      controls.addEventListener('unlock', () => {
-        button.style.display = 'block';
-      });
 
       scene.add(controls.getObject());
 
