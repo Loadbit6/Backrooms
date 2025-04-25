@@ -1,120 +1,50 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Spinning Cube</title>
-  <style>
-    body { margin: 0; overflow: hidden; }
-    canvas { display: block; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My 3D Game</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+    </style>
 </head>
 <body>
-  <!-- Load Three.js -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Scene setup
+        var scene = new THREE.Scene();
 
-  <!-- Load PointerLockControls -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.161.0/examples/js/controls/PointerLockControls.js"></script>
+        // Camera setup
+        var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-  <script>
-    let camera, scene, renderer, controls, cube;
-    const keys = {};
+        // Renderer setup
+        var renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
 
-    init();
-    animate();
+        // Create a cube
+        var geometry = new THREE.BoxGeometry();
+        var material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        var cube = new THREE.Mesh(geometry, material);
+        scene.add(cube);
 
-    // Initialize the scene
-    function init() {
-      console.log("Initializing the game...");
+        // Set camera position
+        camera.position.z = 5;
 
-      // Create the scene
-      scene = new THREE.Scene();
-      scene.fog = new THREE.Fog(0xffffcc, 5, 50);
+        // Animate the scene
+        var animate = function () {
+            requestAnimationFrame(animate);
 
-      // Create the camera
-      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 1, 1000);
-      camera.position.y = 5;
+            // Rotate the cube
+            cube.rotation.x += 0.01;
+            cube.rotation.y += 0.01;
 
-      // Create the renderer
-      renderer = new THREE.WebGLRenderer();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      document.body.appendChild(renderer.domElement);
+            // Render the scene
+            renderer.render(scene, camera);
+        };
 
-      console.log("Scene and camera set up");
-
-      // Add a simple cube to the scene for debugging
-      const geometry = new THREE.BoxGeometry(1, 1, 1);
-      const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-      cube = new THREE.Mesh(geometry, material);
-      scene.add(cube);
-
-      console.log("Cube added");
-
-      // Create lights
-      const light = new THREE.PointLight(0xffffaa, 1, 100);
-      light.position.set(0, 10, 0);
-      scene.add(light);
-
-      // Setup pointer lock controls
-      controls = new THREE.PointerLockControls(camera, document.body);
-      document.body.requestPointerLock = document.body.requestPointerLock || document.body.mozRequestPointerLock;
-
-      // Automatically request pointer lock on page click
-      document.body.addEventListener('click', () => {
-        if (document.body.requestPointerLock) {
-          document.body.requestPointerLock();
-        }
-      });
-
-      console.log("Pointer lock event added");
-
-      // Add the controls object to the scene
-      scene.add(controls.getObject());
-
-      // Handle keyboard input
-      document.addEventListener('keydown', (e) => keys[e.code] = true);
-      document.addEventListener('keyup', (e) => keys[e.code] = false);
-
-      console.log("Game initialized");
-    }
-
-    // Animate the scene
-    function animate() {
-      requestAnimationFrame(animate);
-
-      // Rotate the cube
-      cube.rotation.x += 0.01;
-      cube.rotation.y += 0.01;
-
-      // Move the player based on keyboard input (if pointer is locked)
-      if (controls.isLocked) {
-        let moveSpeed = 0.2;
-        if (keys['KeyW']) controls.moveForward(moveSpeed);
-        if (keys['KeyS']) controls.moveForward(-moveSpeed);
-        if (keys['KeyA']) controls.moveRight(-moveSpeed);
-        if (keys['KeyD']) controls.moveRight(moveSpeed);
-      }
-
-      renderer.render(scene, camera);
-    }
-
-    // Handle resizing the window
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-
-    // Handle pointer lock change event
-    document.addEventListener('pointerlockchange', onPointerLockChange, false);
-    document.addEventListener('mozpointerlockchange', onPointerLockChange, false);
-
-    function onPointerLockChange() {
-      if (document.pointerLockElement === document.body || document.mozPointerLockElement === document.body) {
-        console.log("Pointer locked");
-      } else {
-        console.log("Pointer unlocked");
-      }
-    }
-  </script>
+        // Start the animation
+        animate();
+    </script>
 </body>
 </html>
