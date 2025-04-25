@@ -74,8 +74,24 @@
 
       const button = document.getElementById('startBtn');
       button.addEventListener('click', () => {
-        controls.lock();
+        alert("Button clicked!"); // Show an alert to check if the button is working
+        document.body.requestPointerLock = document.body.requestPointerLock || document.body.mozRequestPointerLock;
+
+        if (document.body.requestPointerLock) {
+          document.body.requestPointerLock();
+        }
       });
+
+      document.addEventListener('pointerlockchange', onPointerLockChange, false);
+      document.addEventListener('mozpointerlockchange', onPointerLockChange, false);
+
+      function onPointerLockChange() {
+        if (document.pointerLockElement === document.body || document.mozPointerLockElement === document.body) {
+          button.style.display = 'none'; // Hide the button when locked
+        } else {
+          button.style.display = 'block'; // Show the button when unlocked
+        }
+      }
 
       controls.addEventListener('lock', () => {
         button.style.display = 'none';
