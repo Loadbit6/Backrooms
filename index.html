@@ -1,101 +1,152 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Backrooms 3D</title>
-    <style>
-        body { margin: 0; overflow: hidden; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backrooms 3D</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #000; }
+    #instructions {
+      position: absolute;
+      top: 50%;
+      width: 100%;
+      text-align: center;
+      color: white;
+      font-family: sans-serif;
+      font-size: 24px;
+      user-select: none;
+      transform: translateY(-50%);
+    }
+  </style>
 </head>
 <body>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script>
-        // Scene setup
-        var scene = new THREE.Scene();
+<div id="instructions">
+  Click to Start
+</div>
 
-        // Camera setup
-        var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 1.6, 5); // Set camera slightly above the ground (realistic height)
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/PointerLockControls.js"></script>
 
-        // Renderer setup
-        var renderer = new THREE.WebGLRenderer();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+<script>
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-        // Lighting setup
-        var ambientLight = new THREE.AmbientLight(0x404040); // Soft white light
-        scene.add(ambientLight);
+  var renderer = new THREE.WebGLRenderer();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
 
-        var directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-        directionalLight.position.set(5, 10, 5).normalize();
-        scene.add(directionalLight);
+  // Lighting
+  var light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
+  scene.add(light);
 
-        // Create the hallway (a simple box for the floor and walls)
-        function createWall(width, height, depth, x, y, z, color) {
-            var geometry = new THREE.BoxGeometry(width, height, depth);
-            var material = new THREE.MeshBasicMaterial({ color: color });
-            var wall = new THREE.Mesh(geometry, material);
-            wall.position.set(x, y, z);
-            return wall;
-        }
+  // Controls
+  var controls = new THREE.PointerLockControls(camera, document.body);
+  var instructions = document.getElementById('instructions');
 
-        // Create walls and floor for the hallway
-        var floor = createWall(20, 1, 20, 0, 0, 0, 0x999999); // Floor
-        var leftWall = createWall(1, 5, 20, -10, 2.5, 0, 0xdddddd); // Left Wall
-        var rightWall = createWall(1, 5, 20, 10, 2.5, 0, 0xdddddd); // Right Wall
-        var ceiling = createWall(20, 1, 20, 0, 5, 0, 0xaaaaaa); // Ceiling
-        scene.add(floor, leftWall, rightWall, ceiling);
+  instructions.addEventListener('click', function() {
+    controls.lock();
+  });
 
-        // Setup movement (WASD keys)
-        var speed = 0.1;
-        var moveForward = false;
-        var moveBackward = false;
-        var moveLeft = false;
-        var moveRight = false;
+  controls.addEventListener('lock', function() {
+    instructions.style.display = 'none';
+  });
 
-        function onKeyDown(event) {
-            switch (event.code) {
-                case 'KeyW': moveForward = true; break;
-                case 'KeyS': moveBackward = true; break;
-                case 'KeyA': moveLeft = true; break;
-                case 'KeyD': moveRight = true; break;
-            }
-        }
+  controls.addEventListener('unlock', function() {
+    instructions.style.display = '';
+  });
 
-        function onKeyUp(event) {
-            switch (event.code) {
-                case 'KeyW': moveForward = false; break;
-                case 'KeyS': moveBackward = false; break;
-                case 'KeyA': moveLeft = false; break;
-                case 'KeyD': moveRight = false; break;
-            }
-        }
+  scene.add(controls.getObject());
 
-        document.addEventListener('keydown', onKeyDown, false);
-        document.addEventListener('keyup', onKeyUp, false);
+  // Textures
+  var textureLoader = new THREE.TextureLoader();
+  var wallTexture = textureLoader.load('https://i.imgur.com/O7bPBhh.jpg'); // Example wall texture
+  var floorTexture = textureLoader.load('https://i.imgur.com/GpT3KQm.jpg'); // Example floor texture
 
-        // Movement logic
-        function moveCamera() {
-            if (moveForward) camera.position.z -= speed;
-            if (moveBackward) camera.position.z += speed;
-            if (moveLeft) camera.position.x -= speed;
-            if (moveRight) camera.position.x += speed;
-        }
+  function createWall(width, height, depth, x, y, z, material) {
+    var geometry = new THREE.BoxGeometry(width, height, depth);
+    var mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(x, y, z);
+    return mesh;
+  }
 
-        // Animate the scene
-        var animate = function () {
-            requestAnimationFrame(animate);
+  function createInitialHallway() {
+    var wallMaterial = new THREE.MeshBasicMaterial({ map: wallTexture });
+    var floorMaterial = new THREE.MeshBasicMaterial({ map: floorTexture });
 
-            // Move the camera based on keypresses
-            moveCamera();
+    var floor = createWall(20, 1, 20, 0, 0, 0, floorMaterial);
+    var leftWall = createWall(1, 5, 20, -10, 2.5, 0, wallMaterial);
+    var rightWall = createWall(1, 5, 20, 10, 2.5, 0, wallMaterial);
+    var ceiling = createWall(20, 1, 20, 0, 5, 0, wallMaterial);
 
-            // Render the scene
-            renderer.render(scene, camera);
-        };
+    scene.add(floor, leftWall, rightWall, ceiling);
+  }
 
-        // Start the animation loop
-        animate();
-    </script>
+  function generateRandomHallway() {
+    var randomX = (Math.floor(Math.random() * 5) - 2) * 20;
+    var randomZ = (Math.floor(Math.random() * 5) - 2) * 20;
+
+    var wallMaterial = new THREE.MeshBasicMaterial({ map: wallTexture });
+    var floorMaterial = new THREE.MeshBasicMaterial({ map: floorTexture });
+
+    var floor = createWall(20, 1, 20, randomX, 0, randomZ, floorMaterial);
+    var leftWall = createWall(1, 5, 20, randomX - 10, 2.5, randomZ, wallMaterial);
+    var rightWall = createWall(1, 5, 20, randomX + 10, 2.5, randomZ, wallMaterial);
+    var ceiling = createWall(20, 1, 20, randomX, 5, randomZ, wallMaterial);
+
+    scene.add(floor, leftWall, rightWall, ceiling);
+  }
+
+  // Movement variables
+  var moveForward = false;
+  var moveBackward = false;
+  var moveLeft = false;
+  var moveRight = false;
+  var velocity = new THREE.Vector3();
+
+  document.addEventListener('keydown', function(event) {
+    switch (event.code) {
+      case 'KeyW': moveForward = true; break;
+      case 'KeyS': moveBackward = true; break;
+      case 'KeyA': moveLeft = true; break;
+      case 'KeyD': moveRight = true; break;
+    }
+  });
+
+  document.addEventListener('keyup', function(event) {
+    switch (event.code) {
+      case 'KeyW': moveForward = false; break;
+      case 'KeyS': moveBackward = false; break;
+      case 'KeyA': moveLeft = false; break;
+      case 'KeyD': moveRight = false; break;
+    }
+  });
+
+  // Main animate loop
+  var clock = new THREE.Clock();
+  createInitialHallway();
+  setInterval(generateRandomHallway, 3000); // New hallway every 3 seconds
+
+  function animate() {
+    requestAnimationFrame(animate);
+
+    var delta = clock.getDelta();
+    velocity.x -= velocity.x * 10.0 * delta;
+    velocity.z -= velocity.z * 10.0 * delta;
+
+    var speed = 50.0;
+
+    if (moveForward) velocity.z -= speed * delta;
+    if (moveBackward) velocity.z += speed * delta;
+    if (moveLeft) velocity.x -= speed * delta;
+    if (moveRight) velocity.x += speed * delta;
+
+    controls.moveRight(-velocity.x * delta);
+    controls.moveForward(-velocity.z * delta);
+
+    renderer.render(scene, camera);
+  }
+
+  animate();
+</script>
 </body>
 </html>
