@@ -28,7 +28,7 @@
 <script>
   // Setup scene, camera, renderer
   var scene = new THREE.Scene();
-  var camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+  var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
   var renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
@@ -42,15 +42,15 @@
   var instructions = document.getElementById('instructions');
 
   // Click event to lock pointer and hide instructions
-  instructions.addEventListener('click', function() {
+  instructions.addEventListener('click', function () {
     controls.lock();
   });
 
-  controls.addEventListener('lock', function() {
+  controls.addEventListener('lock', function () {
     instructions.style.display = 'none';
   });
 
-  controls.addEventListener('unlock', function() {
+  controls.addEventListener('unlock', function () {
     instructions.style.display = '';  // Show the instructions when unlock
   });
 
@@ -58,19 +58,12 @@
 
   controls.getObject().position.set(0, 5, 0); // Start camera above floor
 
-  // Add a simple cube to test rendering
-  var cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
-  var cubeMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 }); // Green cube
-  var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-  scene.add(cube);
-  cube.position.set(0, 5, -5); // Position the cube in front of the camera
-
-  // Textures (Backrooms-style)
+  // Load textures from GitHub repository (replace with your actual file paths)
   var textureLoader = new THREE.TextureLoader();
-  var wallTexture = textureLoader.load('https://github.com/Loadbit6/Backrooms/blob/cf8b91c3f1be68357d81872c47d75e3acda8fd00/textures/tex.jpeg');
-  var floorTexture = textureLoader.load('https://upload.wikimedia.org/wikipedia/commons/6/68/Backrooms_wall_texture.jpg');
+  var wallTexture = textureLoader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/cf8b91c3f1be68357d81872c47d75e3acda8fd00/textures/tex.jpeg');
+  var floorTexture = textureLoader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/cf8b91c3f1be68357d81872c47d75e3acda8fd00/textures/tex.jpeg');
 
-  // Collision boxes
+  // Collision boxes for the walls
   var collisionBoxes = [];
 
   function createWall(width, height, depth, x, y, z, material) {
@@ -87,31 +80,16 @@
     var wallMaterial = new THREE.MeshBasicMaterial({ map: wallTexture });
     var floorMaterial = new THREE.MeshBasicMaterial({ map: floorTexture });
 
-    createWall(20, 1, 20, 0, 0, 0, floorMaterial); // Floor
-    createWall(1, 5, 20, -10, 2.5, 0, wallMaterial); // Left Wall
-    createWall(1, 5, 20, 10, 2.5, 0, wallMaterial); // Right Wall
-    createWall(20, 5, 1, 0, 2.5, -10, wallMaterial); // Back Wall
-    createWall(20, 5, 1, 0, 2.5, 10, wallMaterial); // Front Wall
-    createWall(20, 1, 20, 0, 5, 0, wallMaterial); // Ceiling
-  }
-
-  function generateRandomRoom() {
-    var wallMaterial = new THREE.MeshBasicMaterial({ map: wallTexture });
-    var floorMaterial = new THREE.MeshBasicMaterial({ map: floorTexture });
-
-    var randomX = (Math.floor(Math.random() * 5) - 2) * 20;
-    var randomZ = (Math.floor(Math.random() * 5) - 2) * 20;
-
-    createWall(20, 1, 20, randomX, 0, randomZ, floorMaterial);
-    createWall(1, 5, 20, randomX - 10, 2.5, randomZ, wallMaterial);
-    createWall(1, 5, 20, randomX + 10, 2.5, randomZ, wallMaterial);
-    createWall(20, 5, 1, randomX, 2.5, randomZ - 10, wallMaterial);
-    createWall(20, 5, 1, randomX, 2.5, randomZ + 10, wallMaterial);
-    createWall(20, 1, 20, randomX, 5, randomZ, wallMaterial);
+    // Create walls and floor with texture
+    createWall(20, 1, 20, 0, 0, 0, floorMaterial);  // Floor
+    createWall(1, 5, 20, -10, 2.5, 0, wallMaterial);  // Left Wall
+    createWall(1, 5, 20, 10, 2.5, 0, wallMaterial);  // Right Wall
+    createWall(20, 5, 1, 0, 2.5, -10, wallMaterial);  // Back Wall
+    createWall(20, 5, 1, 0, 2.5, 10, wallMaterial);  // Front Wall
+    createWall(20, 1, 20, 0, 5, 0, wallMaterial);   // Ceiling
   }
 
   createInitialRoom();
-  setInterval(generateRandomRoom, 3000);
 
   // Movement controls
   var moveForward = false;
@@ -127,7 +105,7 @@
   var movementSpeed = 3; // Reduced speed for movement
   var jumpHeight = 5; // Adjusted jump height
 
-  document.addEventListener('keydown', function(event) {
+  document.addEventListener('keydown', function (event) {
     switch (event.code) {
       case 'KeyW': moveForward = true; break;
       case 'KeyS': moveBackward = true; break;
@@ -142,7 +120,7 @@
     }
   });
 
-  document.addEventListener('keyup', function(event) {
+  document.addEventListener('keyup', function (event) {
     switch (event.code) {
       case 'KeyW': moveForward = false; break;
       case 'KeyS': moveBackward = false; break;
@@ -156,7 +134,7 @@
   function checkCollision(position) {
     var boxSize = new THREE.Vector3(1, playerHeight, 1);
     var playerBox = new THREE.Box3().setFromCenterAndSize(
-      position.clone().add(new THREE.Vector3(0, boxSize.y/2, 0)),
+      position.clone().add(new THREE.Vector3(0, boxSize.y / 2, 0)),
       boxSize
     );
     for (var i = 0; i < collisionBoxes.length; i++) {
