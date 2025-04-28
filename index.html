@@ -57,10 +57,10 @@
 
   controls.getObject().position.set(0, 5, 0); // Spawn higher, above floor
 
-  // Textures
+  // Textures (Backrooms-style)
   var textureLoader = new THREE.TextureLoader();
-  var wallTexture = textureLoader.load('https://i.imgur.com/O7bPBhh.jpg');
-  var floorTexture = textureLoader.load('https://i.imgur.com/GpT3KQm.jpg');
+  var wallTexture = textureLoader.load('https://upload.wikimedia.org/wikipedia/commons/6/68/Backrooms_wall_texture.jpg');
+  var floorTexture = textureLoader.load('https://upload.wikimedia.org/wikipedia/commons/e/e5/Dirty_carpet_texture.jpg');
 
   // Collision boxes
   var collisionBoxes = [];
@@ -113,8 +113,9 @@
   var canJump = false;
 
   var velocity = new THREE.Vector3();
+  var direction = new THREE.Vector3();
   var gravity = 30;
-  var isOnGround = false;
+  var playerHeight = 1.8;
 
   document.addEventListener('keydown', function(event) {
     switch (event.code) {
@@ -123,8 +124,9 @@
       case 'KeyA': moveLeft = true; break;
       case 'KeyD': moveRight = true; break;
       case 'Space':
-        if (isOnGround) {
-          velocity.y += 10; // Jump
+        if (canJump) {
+          velocity.y += 10;
+          canJump = false;
         }
         break;
     }
@@ -139,10 +141,13 @@
     }
   });
 
+  var clock = new THREE.Clock();
+
   function checkCollision(position) {
+    var boxSize = new THREE.Vector3(1, playerHeight, 1);
     var playerBox = new THREE.Box3().setFromCenterAndSize(
-      position.clone().add(new THREE.Vector3(0, 1.5, 0)), // shifted up
-      new THREE.Vector3(1, 3, 1) // width, height, depth
+      position.clone().add(new THREE.Vector3(0, boxSize.y/2, 0)),
+      boxSize
     );
     for (var i = 0; i < collisionBoxes.length; i++) {
       if (playerBox.intersectsBox(collisionBoxes[i])) {
@@ -152,43 +157,35 @@
     return false;
   }
 
-  var clock = new THREE.Clock();
-
   function animate() {
     requestAnimationFrame(animate);
 
     var delta = clock.getDelta();
-
-    // Apply gravity
     velocity.y -= gravity * delta;
-    velocity.x -= velocity.x * 10.0 * delta;
-    velocity.z -= velocity.z * 10.0 * delta;
 
-    var speed = 50.0;
+    direction.z = Number(moveForward) - Number(moveBackward);
+    direction.x = Number(moveRight) - Number(moveLeft);
+    direction.normalize(); 
 
-    if (moveForward) velocity.z -= speed * delta;
-    if (moveBackward) velocity.z += speed * delta;
-    if (moveLeft) velocity.x -= speed * delta;
-    if (moveRight) velocity.x += speed * delta;
+    if (moveForward || moveBackward) velocity.z -= direction.z * 400.0 * delta;
+    if (moveLeft || moveRight) velocity.x -= direction.x * 400.0 * delta;
 
     var oldPosition = controls.getObject().position.clone();
 
-    controls.getObject().position.x += velocity.x * delta;
+    controls.moveRight(-velocity.x * delta);
+    controls.moveForward(-velocity.z * delta);
     controls.getObject().position.y += velocity.y * delta;
-    controls.getObject().position.z += velocity.z * delta;
 
     if (checkCollision(controls.getObject().position)) {
       controls.getObject().position.copy(oldPosition);
-      velocity.y = 0;
-      isOnGround = true;
-    } else {
-      isOnGround = false;
+      velocity.x = 0;
+      velocity.z = 0;
     }
 
-    if (controls.getObject().position.y < 1.6) {
-      controls.getObject().position.y = 1.6;
-      isOnGround = true;
+    if (controls.getObject().position.y < playerHeight) {
       velocity.y = 0;
+      controls.getObject().position.y = playerHeight;
+      canJump = true;
     }
 
     renderer.render(scene, camera);
