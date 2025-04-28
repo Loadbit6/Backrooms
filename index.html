@@ -124,6 +124,8 @@
   var direction = new THREE.Vector3();
   var gravity = 30;
   var playerHeight = 1.8;
+  var movementSpeed = 3; // Reduced speed for movement
+  var jumpHeight = 5; // Adjusted jump height
 
   document.addEventListener('keydown', function(event) {
     switch (event.code) {
@@ -133,7 +135,7 @@
       case 'KeyD': moveRight = true; break;
       case 'Space':
         if (canJump) {
-          velocity.y += 10;
+          velocity.y = jumpHeight;
           canJump = false;
         }
         break;
@@ -175,8 +177,8 @@
     direction.x = Number(moveRight) - Number(moveLeft);
     direction.normalize();
 
-    if (moveForward || moveBackward) velocity.z -= direction.z * 400.0 * delta;
-    if (moveLeft || moveRight) velocity.x -= direction.x * 400.0 * delta;
+    if (moveForward || moveBackward) velocity.z -= direction.z * movementSpeed * 100.0 * delta;
+    if (moveLeft || moveRight) velocity.x -= direction.x * movementSpeed * 100.0 * delta;
 
     var oldPosition = controls.getObject().position.clone();
 
