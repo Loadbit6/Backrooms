@@ -27,7 +27,6 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/PointerLockControls.js"></script>
 
 <script>
-  // Scene setup
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
   const renderer = new THREE.WebGLRenderer();
@@ -44,9 +43,8 @@
   controls.addEventListener('lock', () => instructions.style.display = 'none');
   controls.addEventListener('unlock', () => instructions.style.display = '');
   scene.add(controls.getObject());
-  controls.getObject().position.set(0, 5, 0); // Start above floor
+  controls.getObject().position.set(0, 5, 0); // start above floor
 
-  // Load textures
   const loader = new THREE.TextureLoader();
   const textureURL = 'https://raw.githubusercontent.com/Loadbit6/Backrooms/cf8b91c3f1be68357d81872c47d75e3acda8fd00/textures/tex.jpeg';
   const wallTex = loader.load(textureURL);
@@ -77,15 +75,14 @@
 
   createRoom();
 
-  // Movement setup
   let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
   let canJump = false;
   const velocity = new THREE.Vector3();
   const direction = new THREE.Vector3();
   const gravity = 30;
-  const jumpStrength = 10;  // Higher jump
+  const jumpStrength = 10;
   const playerHeight = 1.8;
-  const speed = 1;          // Slower movement
+  const speed = 1;
 
   document.addEventListener('keydown', (e) => {
     switch (e.code) {
@@ -125,41 +122,48 @@
 
     velocity.y -= gravity * delta;
 
-    direction.z = Number(moveForward) - Number(moveBackward);
-    direction.x = Number(moveRight) - Number(moveLeft);
+    // Handle movement relative to camera
+    direction.set(
+      Number(moveRight) - Number(moveLeft),
+      0,
+      Number(moveBackward) - Number(moveForward)
+    );
     direction.normalize();
 
-    if (moveForward || moveBackward) velocity.z -= direction.z * speed * 100.0 * delta;
-    if (moveLeft || moveRight) velocity.x -= direction.x * speed * 100.0 * delta;
+    if (moveForward || moveBackward || moveLeft || moveRight) {
+      const moveVector = new THREE.Vector3(direction.x, 0, direction.z);
+      moveVector.applyQuaternion(camera.quaternion);
+      velocity.x -= moveVector.x * speed * 100.0 * delta;
+      velocity.z -= moveVector.z * speed * 100.0 * delta;
+    }
 
-    // Friction
+    // Apply friction
     velocity.x -= velocity.x * 10.0 * delta;
     velocity.z -= velocity.z * 10.0 * delta;
 
     const pos = controls.getObject().position;
 
-    // X-axis
+    // X movement + collision
     pos.x += -velocity.x * delta;
     if (checkCollision(pos)) {
       pos.x -= -velocity.x * delta;
       velocity.x = 0;
     }
 
-    // Z-axis
+    // Z movement + collision
     pos.z += -velocity.z * delta;
     if (checkCollision(pos)) {
       pos.z -= -velocity.z * delta;
       velocity.z = 0;
     }
 
-    // Y-axis
+    // Y movement + collision
     pos.y += velocity.y * delta;
     if (checkCollision(pos)) {
       pos.y -= velocity.y * delta;
       velocity.y = 0;
     }
 
-    // Reset jump when on ground
     if (pos.y < playerHeight) {
       velocity.y = 0;
       pos.y = playerHeight;
