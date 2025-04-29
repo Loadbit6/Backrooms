@@ -38,17 +38,27 @@
 
   const controls = new THREE.PointerLockControls(camera, document.body);
   const instructions = document.getElementById('instructions');
-
   instructions.addEventListener('click', () => controls.lock());
   controls.addEventListener('lock', () => instructions.style.display = 'none');
   controls.addEventListener('unlock', () => instructions.style.display = '');
   scene.add(controls.getObject());
-  controls.getObject().position.set(0, 5, 0); // start above floor
+  controls.getObject().position.set(0, 5, 0);
 
   const loader = new THREE.TextureLoader();
-  const textureURL = 'https://raw.githubusercontent.com/Loadbit6/Backrooms/cf8b91c3f1be68357d81872c47d75e3acda8fd00/textures/tex.jpeg';
-  const wallTex = loader.load(textureURL);
-  const floorTex = loader.load(textureURL);
+
+  // 🖼️ Editable texture URLs
+  const wallTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/tex.jpeg');
+  const floorTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/tex.jpeg');
+  const ceilTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/tex.jpeg');
+
+  // 🔁 Set wrap mode and tiling separately
+  wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
+  floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
+  ceilTex.wrapS = ceilTex.wrapT = THREE.RepeatWrapping;
+
+  wallTex.repeat.set(4, 2);  // walls
+  floorTex.repeat.set(8, 8); // floor
+  ceilTex.repeat.set(2, 2);  // ceiling
 
   const collisionBoxes = [];
 
@@ -64,9 +74,10 @@
   function createRoom() {
     const wallMat = new THREE.MeshBasicMaterial({ map: wallTex });
     const floorMat = new THREE.MeshBasicMaterial({ map: floorTex });
+    const ceilMat = new THREE.MeshBasicMaterial({ map: ceilTex });
 
     createWall(20, 1, 20, 0, 0, 0, floorMat);    // Floor
-    createWall(20, 1, 20, 0, 5, 0, wallMat);     // Ceiling
+    createWall(20, 1, 20, 0, 5, 0, ceilMat);     // Ceiling
     createWall(1, 5, 20, -10, 2.5, 0, wallMat);  // Left
     createWall(1, 5, 20, 10, 2.5, 0, wallMat);   // Right
     createWall(20, 5, 1, 0, 2.5, -10, wallMat);  // Back
@@ -122,7 +133,6 @@
 
     velocity.y -= gravity * delta;
 
-    // Handle movement relative to camera
     direction.set(
       Number(moveRight) - Number(moveLeft),
       0,
@@ -137,27 +147,23 @@
       velocity.z -= moveVector.z * speed * 100.0 * delta;
     }
 
-    // Apply friction
     velocity.x -= velocity.x * 10.0 * delta;
     velocity.z -= velocity.z * 10.0 * delta;
 
     const pos = controls.getObject().position;
 
-    // X movement + collision
     pos.x += -velocity.x * delta;
     if (checkCollision(pos)) {
       pos.x -= -velocity.x * delta;
       velocity.x = 0;
     }
 
-    // Z movement + collision
     pos.z += -velocity.z * delta;
     if (checkCollision(pos)) {
       pos.z -= -velocity.z * delta;
       velocity.z = 0;
     }
 
-    // Y movement + collision
     pos.y += velocity.y * delta;
     if (checkCollision(pos)) {
       pos.y -= velocity.y * delta;
