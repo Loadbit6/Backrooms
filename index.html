@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Backrooms with RGB Filters & Tiling</title>
+  <title>Backrooms with Ceiling Fix</title>
   <style>
     body { margin: 0; overflow: hidden; background: black; }
     #instructions {
@@ -43,7 +43,6 @@ const light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1.5);
 scene.add(light);
 
 const loader = new THREE.TextureLoader();
-
 const wallTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/wall.jpeg');
 const floorTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/floor.jpg');
 const ceilTex  = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/ceiling.jpg');
@@ -52,7 +51,6 @@ wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
 floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
 ceilTex.wrapS  = ceilTex.wrapT  = THREE.RepeatWrapping;
 
-// ShaderMaterial with tiling support
 function makeRGBMaterial(tex, r, g, b, repeatX, repeatY) {
   return new THREE.ShaderMaterial({
     uniforms: {
@@ -87,10 +85,9 @@ function makeRGBMaterial(tex, r, g, b, repeatX, repeatY) {
   });
 }
 
-// Apply RGB filters and repeat values
-const wallMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 2);   // wall: slightly yellow, 4x2 tiling
-const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 4, 4);  // floor: bright, 8x8 tiling
-const ceilMat  = makeRGBMaterial(ceilTex, 0.7, 0.6, 0.6, 4, 4);   // ceiling: dim, 2x2 tiling
+const wallMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 4, 2);
+const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);
+const ceilMat  = makeRGBMaterial(ceilTex, 0.7, 0.6, 0.6, 2, 2);
 
 const collisionBoxes = [];
 function createWall(w, h, d, x, y, z, material) {
@@ -98,17 +95,23 @@ function createWall(w, h, d, x, y, z, material) {
   const mesh = new THREE.Mesh(geo, material);
   mesh.position.set(x, y, z);
   scene.add(mesh);
-  const bbox = new THREE.Box3().setFromObject(mesh);
-  collisionBoxes.push(bbox);
+  collisionBoxes.push(new THREE.Box3().setFromObject(mesh));
 }
 
 function createRoom() {
   createWall(20, 1, 20, 0, 0, 0, floorMat);     // floor
-  createWall(20, 1, 20, 0, 5, 0, ceilMat);      // ceiling
-  createWall(1, 5, 20, -10, 2.5, 0, wallMat);   // left wall
-  createWall(1, 5, 20,  10, 2.5, 0, wallMat);   // right wall
-  createWall(20, 5, 1,  0, 2.5, -10, wallMat);  // back wall
-  createWall(20, 5, 1,  0, 2.5, 10, wallMat);   // front wall
+
+  // fix: ceiling raised and flipped to render properly
+  const ceil = new THREE.Mesh(new THREE.BoxGeometry(20, 1, 20), ceilMat);
+  ceil.position.set(0, 5.5, 0);
+  ceil.rotation.x = Math.PI;
+  scene.add(ceil);
+  collisionBoxes.push(new THREE.Box3().setFromObject(ceil));
+
+  createWall(1, 5, 20, -10, 2.5, 0, wallMat);
+  createWall(1, 5, 20,  10, 2.5, 0, wallMat);
+  createWall(20, 5, 1,  0, 2.5, -10, wallMat);
+  createWall(20, 5, 1,  0, 2.5, 10, wallMat);
 }
 createRoom();
 
