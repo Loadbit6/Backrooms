@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Backrooms with Ceiling Fix</title>
+  <title>Backrooms with Fixed Ceiling</title>
   <style>
     body { margin: 0; overflow: hidden; background: black; }
     #instructions {
@@ -81,13 +81,15 @@ function makeRGBMaterial(tex, r, g, b, repeatX, repeatY) {
         color.b *= bMult;
         gl_FragColor = color;
       }
-    `
+    `,
+    side: THREE.DoubleSide
   });
 }
 
 const wallMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 4, 2);
 const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);
 const ceilMat  = makeRGBMaterial(ceilTex, 0.7, 0.6, 0.6, 2, 2);
+ceilMat.side = THREE.DoubleSide;
 
 const collisionBoxes = [];
 function createWall(w, h, d, x, y, z, material) {
@@ -101,13 +103,15 @@ function createWall(w, h, d, x, y, z, material) {
 function createRoom() {
   createWall(20, 1, 20, 0, 0, 0, floorMat);     // floor
 
-  // fix: ceiling raised and flipped to render properly
-  const ceil = new THREE.Mesh(new THREE.BoxGeometry(20, 1, 20), ceilMat);
-  ceil.position.set(0, 5.5, 0);
-  ceil.rotation.x = Math.PI;
-  scene.add(ceil);
-  collisionBoxes.push(new THREE.Box3().setFromObject(ceil));
+  // ceiling as plane (fix)
+  const ceilGeo = new THREE.PlaneGeometry(20, 20);
+  const ceilMesh = new THREE.Mesh(ceilGeo, ceilMat);
+  ceilMesh.rotation.x = Math.PI / 2;
+  ceilMesh.position.y = 6;
+  scene.add(ceilMesh);
+  collisionBoxes.push(new THREE.Box3().setFromObject(ceilMesh));
 
+  // walls
   createWall(1, 5, 20, -10, 2.5, 0, wallMat);
   createWall(1, 5, 20,  10, 2.5, 0, wallMat);
   createWall(20, 5, 1,  0, 2.5, -10, wallMat);
