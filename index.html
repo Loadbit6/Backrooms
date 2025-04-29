@@ -86,9 +86,9 @@ function makeRGBMaterial(tex, r, g, b, repeatX, repeatY) {
   });
 }
 
-const wallMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 3, 2);
+const wallMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 1);
 const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);
-const ceilMat  = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.5, 2, 2);
+const ceilMat  = makeRGBMaterial(ceilTex, 0.65, 0.6, 0.4, 2, 2);
 ceilMat.side = THREE.DoubleSide;
 
 const collisionBoxes = [];
