@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Backrooms with Fixed Ceiling</title>
+  <title>Backrooms with Textured Materials</title>
   <style>
     body { margin: 0; overflow: hidden; background: black; }
     #instructions {
@@ -103,15 +103,14 @@ function createWall(w, h, d, x, y, z, material) {
 function createRoom() {
   createWall(20, 1, 20, 0, 0, 0, floorMat);     // floor
 
-  // ceiling as plane (fix)
+  // Adjust the ceiling's position closer to the player to remove the gap
   const ceilGeo = new THREE.PlaneGeometry(20, 20);
   const ceilMesh = new THREE.Mesh(ceilGeo, ceilMat);
   ceilMesh.rotation.x = Math.PI / 2;
-  ceilMesh.position.y = 6;
+  ceilMesh.position.y = 5;  // Adjust the y-position of the ceiling
   scene.add(ceilMesh);
   collisionBoxes.push(new THREE.Box3().setFromObject(ceilMesh));
 
-  // walls
   createWall(1, 5, 20, -10, 2.5, 0, wallMat);
   createWall(1, 5, 20,  10, 2.5, 0, wallMat);
   createWall(20, 5, 1,  0, 2.5, -10, wallMat);
@@ -119,7 +118,6 @@ function createRoom() {
 }
 createRoom();
 
-// Movement
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
 const velocity = new THREE.Vector3(), direction = new THREE.Vector3();
 const gravity = 30, jumpStrength = 10, playerHeight = 1.8, speed = 1;
