@@ -2,8 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Backrooms 3D</title>
+  <title>Backrooms RGB Filters</title>
   <style>
     body { margin: 0; overflow: hidden; background: black; }
     #instructions {
@@ -27,159 +26,168 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/PointerLockControls.js"></script>
 
 <script>
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-  const renderer = new THREE.WebGLRenderer();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-  const light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1.5);
-  scene.add(light);
+const controls = new THREE.PointerLockControls(camera, document.body);
+document.getElementById("instructions").onclick = () => controls.lock();
+controls.addEventListener('lock', () => document.getElementById("instructions").style.display = 'none');
+controls.addEventListener('unlock', () => document.getElementById("instructions").style.display = '');
+controls.getObject().position.set(0, 2, 0);
+scene.add(controls.getObject());
 
-  const controls = new THREE.PointerLockControls(camera, document.body);
-  const instructions = document.getElementById('instructions');
-  instructions.addEventListener('click', () => controls.lock());
-  controls.addEventListener('lock', () => instructions.style.display = 'none');
-  controls.addEventListener('unlock', () => instructions.style.display = '');
-  scene.add(controls.getObject());
+const light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1.5);
+scene.add(light);
 
-  controls.getObject().position.set(0, 2, 0);
+const loader = new THREE.TextureLoader();
 
-  const loader = new THREE.TextureLoader();
+// Load textures
+const wallTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/wall.jpeg');
+const floorTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/floor.jpg');
+const ceilTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/ceiling.jpg');
 
-  // ✅ UPDATED TEXTURE PATHS
-  const wallTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/wall.jpeg');
-  const floorTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/floor.jpg');
-  const ceilTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/ceiling.jpg');
+// Set tiling
+wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
+floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
+ceilTex.wrapS = ceilTex.wrapT = THREE.RepeatWrapping;
 
-  wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
-  floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
-  ceilTex.wrapS = ceilTex.wrapT = THREE.RepeatWrapping;
+wallTex.repeat.set(4, 2);
+floorTex.repeat.set(8, 8);
+ceilTex.repeat.set(2, 2);
 
-  wallTex.repeat.set(4, 2);  // wall tiling
-  floorTex.repeat.set(8, 8); // floor tiling
-  ceilTex.repeat.set(2, 2);  // ceiling tiling
-
-  const collisionBoxes = [];
-
-  function createWall(w, h, d, x, y, z, material) {
-    const box = new THREE.BoxGeometry(w, h, d);
-    const mesh = new THREE.Mesh(box, material);
-    mesh.position.set(x, y, z);
-    scene.add(mesh);
-    const bbox = new THREE.Box3().setFromObject(mesh);
-    collisionBoxes.push(bbox);
-  }
-
-  function createRoom() {
-    const wallMat = new THREE.MeshBasicMaterial({ map: wallTex });
-    const floorMat = new THREE.MeshBasicMaterial({ map: floorTex });
-    const ceilMat = new THREE.MeshBasicMaterial({ map: ceilTex });
-
-    createWall(20, 1, 20, 0, 0, 0, floorMat);    // Floor
-    createWall(20, 1, 20, 0, 5, 0, ceilMat);     // Ceiling
-    createWall(1, 5, 20, -10, 2.5, 0, wallMat);  // Left wall
-    createWall(1, 5, 20, 10, 2.5, 0, wallMat);   // Right wall
-    createWall(20, 5, 1, 0, 2.5, -10, wallMat);  // Back wall
-    createWall(20, 5, 1, 0, 2.5, 10, wallMat);   // Front wall
-  }
-
-  createRoom();
-
-  let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-  let canJump = false;
-  const velocity = new THREE.Vector3();
-  const direction = new THREE.Vector3();
-  const gravity = 30;
-  const jumpStrength = 10;
-  const playerHeight = 1.8;
-  const speed = 1;
-
-  document.addEventListener('keydown', (e) => {
-    switch (e.code) {
-      case 'KeyW': moveForward = true; break;
-      case 'KeyS': moveBackward = true; break;
-      case 'KeyA': moveLeft = true; break;
-      case 'KeyD': moveRight = true; break;
-      case 'Space':
-        if (canJump) {
-          velocity.y = jumpStrength;
-          canJump = false;
-        }
-        break;
-    }
+// Create RGB filter shader material
+function makeRGBMaterial(tex, r, g, b) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      tex: { value: tex },
+      rMult: { value: r },
+      gMult: { value: g },
+      bMult: { value: b }
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D tex;
+      uniform float rMult;
+      uniform float gMult;
+      uniform float bMult;
+      varying vec2 vUv;
+      void main() {
+        vec4 color = texture2D(tex, vUv);
+        color.r *= rMult;
+        color.g *= gMult;
+        color.b *= bMult;
+        gl_FragColor = color;
+      }
+    `
   });
+}
 
-  document.addEventListener('keyup', (e) => {
-    switch (e.code) {
-      case 'KeyW': moveForward = false; break;
-      case 'KeyS': moveBackward = false; break;
-      case 'KeyA': moveLeft = false; break;
-      case 'KeyD': moveRight = false; break;
-    }
-  });
+// Apply RGB filters
+const wallMat = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8);  // slightly yellow walls
+const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1); // slightly green floor
+const ceilMat = makeRGBMaterial(ceilTex, 0.7, 0.6, 0.6);  // slightly blue ceiling
 
-  const clock = new THREE.Clock();
+const collisionBoxes = [];
+function createWall(w, h, d, x, y, z, material) {
+  const geo = new THREE.BoxGeometry(w, h, d);
+  const mesh = new THREE.Mesh(geo, material);
+  mesh.position.set(x, y, z);
+  scene.add(mesh);
+  const bbox = new THREE.Box3().setFromObject(mesh);
+  collisionBoxes.push(bbox);
+}
 
-  function checkCollision(pos) {
-    const size = new THREE.Vector3(1, playerHeight, 1);
-    const box = new THREE.Box3().setFromCenterAndSize(pos.clone().add(new THREE.Vector3(0, size.y / 2, 0)), size);
-    return collisionBoxes.some(other => box.intersectsBox(other));
+function createRoom() {
+  createWall(20, 1, 20, 0, 0, 0, floorMat);    // floor
+  createWall(20, 1, 20, 0, 5, 0, ceilMat);     // ceiling
+  createWall(1, 5, 20, -10, 2.5, 0, wallMat);  // left wall
+  createWall(1, 5, 20, 10, 2.5, 0, wallMat);   // right wall
+  createWall(20, 5, 1, 0, 2.5, -10, wallMat);  // back wall
+  createWall(20, 5, 1, 0, 2.5, 10, wallMat);   // front wall
+}
+createRoom();
+
+// Movement and physics
+let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
+const velocity = new THREE.Vector3(), direction = new THREE.Vector3();
+const gravity = 30, jumpStrength = 10, playerHeight = 1.8, speed = 1;
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'KeyW') moveForward = true;
+  if (e.code === 'KeyS') moveBackward = true;
+  if (e.code === 'KeyA') moveLeft = true;
+  if (e.code === 'KeyD') moveRight = true;
+  if (e.code === 'Space' && canJump) {
+    velocity.y = jumpStrength;
+    canJump = false;
+  }
+});
+document.addEventListener('keyup', e => {
+  if (e.code === 'KeyW') moveForward = false;
+  if (e.code === 'KeyS') moveBackward = false;
+  if (e.code === 'KeyA') moveLeft = false;
+  if (e.code === 'KeyD') moveRight = false;
+});
+
+function checkCollision(pos) {
+  const size = new THREE.Vector3(1, playerHeight, 1);
+  const box = new THREE.Box3().setFromCenterAndSize(pos.clone().add(new THREE.Vector3(0, size.y / 2, 0)), size);
+  return collisionBoxes.some(other => box.intersectsBox(other));
+}
+
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const delta = clock.getDelta();
+  velocity.y -= gravity * delta;
+
+  direction.set(Number(moveRight) - Number(moveLeft), 0, Number(moveBackward) - Number(moveForward)).normalize();
+  if (moveForward || moveBackward || moveLeft || moveRight) {
+    const moveVec = new THREE.Vector3(direction.x, 0, direction.z).applyQuaternion(camera.quaternion);
+    velocity.x -= moveVec.x * speed * 100 * delta;
+    velocity.z -= moveVec.z * speed * 100 * delta;
   }
 
-  function animate() {
-    requestAnimationFrame(animate);
-    const delta = clock.getDelta();
+  velocity.x -= velocity.x * 10.0 * delta;
+  velocity.z -= velocity.z * 10.0 * delta;
 
-    velocity.y -= gravity * delta;
-
-    direction.set(
-      Number(moveRight) - Number(moveLeft),
-      0,
-      Number(moveBackward) - Number(moveForward)
-    );
-    direction.normalize();
-
-    if (moveForward || moveBackward || moveLeft || moveRight) {
-      const moveVector = new THREE.Vector3(direction.x, 0, direction.z);
-      moveVector.applyQuaternion(camera.quaternion);
-      velocity.x -= moveVector.x * speed * 100.0 * delta;
-      velocity.z -= moveVector.z * speed * 100.0 * delta;
-    }
-
-    velocity.x -= velocity.x * 10.0 * delta;
-    velocity.z -= velocity.z * 10.0 * delta;
-
-    const pos = controls.getObject().position;
-
-    pos.x += -velocity.x * delta;
-    if (checkCollision(pos)) {
-      pos.x -= -velocity.x * delta;
-      velocity.x = 0;
-    }
-
-    pos.z += -velocity.z * delta;
-    if (checkCollision(pos)) {
-      pos.z -= -velocity.z * delta;
-      velocity.z = 0;
-    }
-
-    pos.y += velocity.y * delta;
-    if (checkCollision(pos)) {
-      pos.y -= velocity.y * delta;
-      velocity.y = 0;
-    }
-
-    if (pos.y < playerHeight) {
-      velocity.y = 0;
-      pos.y = playerHeight;
-      canJump = true;
-    }
-
-    renderer.render(scene, camera);
+  const pos = controls.getObject().position;
+  pos.x += -velocity.x * delta;
+  if (checkCollision(pos)) {
+    pos.x -= -velocity.x * delta;
+    velocity.x = 0;
   }
 
-  animate();
+  pos.z += -velocity.z * delta;
+  if (checkCollision(pos)) {
+    pos.z -= -velocity.z * delta;
+    velocity.z = 0;
+  }
+
+  pos.y += velocity.y * delta;
+  if (checkCollision(pos)) {
+    pos.y -= velocity.y * delta;
+    velocity.y = 0;
+  }
+
+  if (pos.y < playerHeight) {
+    pos.y = playerHeight;
+    velocity.y = 0;
+    canJump = true;
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
 </script>
 </body>
 </html>
