@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Backrooms with Textured Materials</title>
+  <title>Backrooms Maze</title>
   <style>
     body { margin: 0; overflow: hidden; background: black; }
     #instructions {
@@ -26,6 +26,70 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/PointerLockControls.js"></script>
 
 <script>
+// Maze generation constants
+const mazeWidth = 10;
+const mazeHeight = 10;
+const wallHeight = 5;
+const wallThickness = 1;
+const grid = [];
+
+// Maze generation (Randomized Prim's Algorithm)
+function generateMaze() {
+  const maze = [];
+  for (let i = 0; i < mazeHeight; i++) {
+    maze.push([]);
+    for (let j = 0; j < mazeWidth; j++) {
+      maze[i].push(1);  // 1 means wall
+    }
+  }
+
+  const visited = Array.from({ length: mazeHeight }, () => Array(mazeWidth).fill(false));
+  const stack = [];
+  
+  // Random starting point
+  const startX = Math.floor(Math.random() * mazeWidth);
+  const startY = Math.floor(Math.random() * mazeHeight);
+
+  visited[startY][startX] = true;
+  stack.push([startX, startY]);
+
+  while (stack.length > 0) {
+    const [x, y] = stack[stack.length - 1];
+
+    const directions = [
+      [0, 1], [1, 0], [0, -1], [-1, 0]  // down, right, up, left
+    ];
+    directions.sort(() => Math.random() - 0.5);  // Randomize directions
+
+    let moved = false;
+    for (let [dx, dy] of directions) {
+      const nx = x + dx * 2;
+      const ny = y + dy * 2;
+
+      if (nx >= 0 && ny >= 0 && nx < mazeWidth && ny < mazeHeight && !visited[ny][nx]) {
+        visited[ny][nx] = true;
+        maze[ny][nx] = 0;  // Mark the new cell as open
+
+        // Create a path between the current and new cell
+        maze[y + dy][x + dx] = 0;
+
+        stack.push([nx, ny]);
+        moved = true;
+        break;
+      }
+    }
+
+    if (!moved) {
+      stack.pop();
+    }
+  }
+
+  return maze;
+}
+
+const maze = generateMaze();
+
+// Scene setup
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer();
@@ -45,12 +109,9 @@ scene.add(light);
 const loader = new THREE.TextureLoader();
 const wallTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/wall.jpeg');
 const floorTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/floor.jpg');
-const ceilTex  = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/ceiling.jpg');
+const ceilTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/ceiling.jpg');
 
-wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
-floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
-ceilTex.wrapS  = ceilTex.wrapT  = THREE.RepeatWrapping;
-
+// Material with RGB manipulation
 function makeRGBMaterial(tex, r, g, b, repeatX, repeatY) {
   return new THREE.ShaderMaterial({
     uniforms: {
@@ -86,38 +147,38 @@ function makeRGBMaterial(tex, r, g, b, repeatX, repeatY) {
   });
 }
 
-const wallMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 1);
+const wallMat = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 1);
 const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);
-const ceilMat  = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);
+const ceilMat = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);
 ceilMat.side = THREE.DoubleSide;
 
-const collisionBoxes = [];
+// Maze generation function for placing walls and floors
+function createMaze(maze) {
+  for (let y = 0; y < mazeHeight; y++) {
+    for (let x = 0; x < mazeWidth; x++) {
+      if (maze[y][x] === 1) {
+        createWall(wallThickness, wallHeight, wallThickness, x * wallThickness, wallHeight / 2, y * wallThickness, wallMat);
+      }
+      if (maze[y][x] === 0) {
+        if (y === mazeHeight - 1 || maze[y + 1][x] === 1) {
+          createWall(wallThickness, wallHeight, wallThickness, x * wallThickness, wallHeight / 2, (y + 1) * wallThickness, floorMat);
+        }
+      }
+    }
+  }
+}
+
+// Helper function to create walls
 function createWall(w, h, d, x, y, z, material) {
   const geo = new THREE.BoxGeometry(w, h, d);
   const mesh = new THREE.Mesh(geo, material);
   mesh.position.set(x, y, z);
   scene.add(mesh);
-  collisionBoxes.push(new THREE.Box3().setFromObject(mesh));
 }
 
-function createRoom() {
-  createWall(20, 1, 20, 0, 0, 0, floorMat);     // floor
+createMaze(maze);
 
-  // Adjust the ceiling's position closer to the player to remove the gap
-  const ceilGeo = new THREE.PlaneGeometry(20, 20);
-  const ceilMesh = new THREE.Mesh(ceilGeo, ceilMat);
-  ceilMesh.rotation.x = Math.PI / 2;
-  ceilMesh.position.y = 5;  // Adjust the y-position of the ceiling
-  scene.add(ceilMesh);
-  collisionBoxes.push(new THREE.Box3().setFromObject(ceilMesh));
-
-  createWall(1, 5, 20, -10, 2.5, 0, wallMat);
-  createWall(1, 5, 20,  10, 2.5, 0, wallMat);
-  createWall(20, 5, 1,  0, 2.5, -10, wallMat);
-  createWall(20, 5, 1,  0, 2.5, 10, wallMat);
-}
-createRoom();
-
+// Camera movement and collision
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
 const velocity = new THREE.Vector3(), direction = new THREE.Vector3();
 const gravity = 30, jumpStrength = 10, playerHeight = 1.8, speed = 1;
