@@ -34,26 +34,15 @@
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
-  // Lighting
   const light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1.5);
   scene.add(light);
 
-  // Pointer lock
   const controls = new THREE.PointerLockControls(camera, document.body);
   const instructions = document.getElementById('instructions');
 
-  instructions.addEventListener('click', () => {
-    controls.lock();
-  });
-
-  controls.addEventListener('lock', () => {
-    instructions.style.display = 'none';
-  });
-
-  controls.addEventListener('unlock', () => {
-    instructions.style.display = '';
-  });
-
+  instructions.addEventListener('click', () => controls.lock());
+  controls.addEventListener('lock', () => instructions.style.display = 'none');
+  controls.addEventListener('unlock', () => instructions.style.display = '');
   scene.add(controls.getObject());
   controls.getObject().position.set(0, 5, 0); // Start above floor
 
@@ -88,15 +77,15 @@
 
   createRoom();
 
-  // Movement
+  // Movement setup
   let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
   let canJump = false;
   const velocity = new THREE.Vector3();
   const direction = new THREE.Vector3();
   const gravity = 30;
-  const jumpStrength = 10;
+  const jumpStrength = 10;  // Higher jump
   const playerHeight = 1.8;
-  const speed = 1;
+  const speed = 1;          // Slower movement
 
   document.addEventListener('keydown', (e) => {
     switch (e.code) {
@@ -143,25 +132,37 @@
     if (moveForward || moveBackward) velocity.z -= direction.z * speed * 100.0 * delta;
     if (moveLeft || moveRight) velocity.x -= direction.x * speed * 100.0 * delta;
 
-    // Apply friction to reduce sliding
+    // Friction
     velocity.x -= velocity.x * 10.0 * delta;
     velocity.z -= velocity.z * 10.0 * delta;
 
-    const oldPos = controls.getObject().position.clone();
+    const pos = controls.getObject().position;
 
-    controls.moveRight(-velocity.x * delta);
-    controls.moveForward(-velocity.z * delta);
-    controls.getObject().position.y += velocity.y * delta;
-
-    if (checkCollision(controls.getObject().position)) {
-      controls.getObject().position.copy(oldPos);
+    // X-axis
+    pos.x += -velocity.x * delta;
+    if (checkCollision(pos)) {
+      pos.x -= -velocity.x * delta;
       velocity.x = 0;
+    }
+
+    // Z-axis
+    pos.z += -velocity.z * delta;
+    if (checkCollision(pos)) {
+      pos.z -= -velocity.z * delta;
       velocity.z = 0;
     }
 
-    if (controls.getObject().position.y < playerHeight) {
+    // Y-axis
+    pos.y += velocity.y * delta;
+    if (checkCollision(pos)) {
+      pos.y -= velocity.y * delta;
       velocity.y = 0;
-      controls.getObject().position.y = playerHeight;
+    }
+
+    // Reset jump when on ground
+    if (pos.y < playerHeight) {
+      velocity.y = 0;
+      pos.y = playerHeight;
       canJump = true;
     }
 
