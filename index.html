@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Backrooms RGB Filters</title>
+  <title>Backrooms with RGB Filters & Tiling</title>
   <style>
     body { margin: 0; overflow: hidden; background: black; }
     #instructions {
@@ -44,33 +44,29 @@ scene.add(light);
 
 const loader = new THREE.TextureLoader();
 
-// Load textures
 const wallTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/wall.jpeg');
 const floorTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/floor.jpg');
-const ceilTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/ceiling.jpg');
+const ceilTex  = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/ceiling.jpg');
 
-// Set tiling
 wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
 floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
-ceilTex.wrapS = ceilTex.wrapT = THREE.RepeatWrapping;
+ceilTex.wrapS  = ceilTex.wrapT  = THREE.RepeatWrapping;
 
-wallTex.repeat.set(4, 2);
-floorTex.repeat.set(8, 8);
-ceilTex.repeat.set(2, 2);
-
-// Create RGB filter shader material
-function makeRGBMaterial(tex, r, g, b) {
+// ShaderMaterial with tiling support
+function makeRGBMaterial(tex, r, g, b, repeatX, repeatY) {
   return new THREE.ShaderMaterial({
     uniforms: {
       tex: { value: tex },
       rMult: { value: r },
       gMult: { value: g },
-      bMult: { value: b }
+      bMult: { value: b },
+      repeat: { value: new THREE.Vector2(repeatX, repeatY) }
     },
     vertexShader: `
       varying vec2 vUv;
+      uniform vec2 repeat;
       void main() {
-        vUv = uv;
+        vUv = uv * repeat;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
     `,
@@ -91,10 +87,10 @@ function makeRGBMaterial(tex, r, g, b) {
   });
 }
 
-// Apply RGB filters
-const wallMat = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8);  // slightly yellow walls
-const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1); // slightly green floor
-const ceilMat = makeRGBMaterial(ceilTex, 0.7, 0.6, 0.6);  // slightly blue ceiling
+// Apply RGB filters and repeat values
+const wallMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 2);   // wall: slightly yellow, 4x2 tiling
+const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 4, 4);  // floor: bright, 8x8 tiling
+const ceilMat  = makeRGBMaterial(ceilTex, 0.7, 0.6, 0.6, 4, 4);   // ceiling: dim, 2x2 tiling
 
 const collisionBoxes = [];
 function createWall(w, h, d, x, y, z, material) {
@@ -107,16 +103,16 @@ function createWall(w, h, d, x, y, z, material) {
 }
 
 function createRoom() {
-  createWall(20, 1, 20, 0, 0, 0, floorMat);    // floor
-  createWall(20, 1, 20, 0, 5, 0, ceilMat);     // ceiling
-  createWall(1, 5, 20, -10, 2.5, 0, wallMat);  // left wall
-  createWall(1, 5, 20, 10, 2.5, 0, wallMat);   // right wall
-  createWall(20, 5, 1, 0, 2.5, -10, wallMat);  // back wall
-  createWall(20, 5, 1, 0, 2.5, 10, wallMat);   // front wall
+  createWall(20, 1, 20, 0, 0, 0, floorMat);     // floor
+  createWall(20, 1, 20, 0, 5, 0, ceilMat);      // ceiling
+  createWall(1, 5, 20, -10, 2.5, 0, wallMat);   // left wall
+  createWall(1, 5, 20,  10, 2.5, 0, wallMat);   // right wall
+  createWall(20, 5, 1,  0, 2.5, -10, wallMat);  // back wall
+  createWall(20, 5, 1,  0, 2.5, 10, wallMat);   // front wall
 }
 createRoom();
 
-// Movement and physics
+// Movement
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
 const velocity = new THREE.Vector3(), direction = new THREE.Vector3();
 const gravity = 30, jumpStrength = 10, playerHeight = 1.8, speed = 1;
