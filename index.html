@@ -64,7 +64,8 @@ function makeRGBMaterial(tex, r, g, b, repeatX, repeatY) {
       varying vec2 vUv;
       uniform vec2 repeat;
       void main() {
-        vUv = uv * repeat;
+        // Adjust UV mapping so that the tiling always starts from the edge
+        vUv = mod(uv * repeat, 1.0); // This ensures the tiling starts from the object's edge
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
     `,
