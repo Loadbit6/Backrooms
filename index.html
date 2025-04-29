@@ -42,23 +42,23 @@
   controls.addEventListener('lock', () => instructions.style.display = 'none');
   controls.addEventListener('unlock', () => instructions.style.display = '');
   scene.add(controls.getObject());
-  controls.getObject().position.set(0, 5, 0);
+
+  controls.getObject().position.set(0, 2, 0);
 
   const loader = new THREE.TextureLoader();
 
-  // 🖼️ Editable texture URLs
-  const wallTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/tex.jpeg');
-  const floorTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/tex.jpeg');
-  const ceilTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/tex.jpeg');
+  // ✅ UPDATED TEXTURE PATHS
+  const wallTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/wall.jpeg');
+  const floorTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/floor.jpg');
+  const ceilTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/ceiling.jpg');
 
-  // 🔁 Set wrap mode and tiling separately
   wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
   floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
   ceilTex.wrapS = ceilTex.wrapT = THREE.RepeatWrapping;
 
-  wallTex.repeat.set(4, 4);  // walls
-  floorTex.repeat.set(4, 4); // floor
-  ceilTex.repeat.set(4, 4);  // ceiling
+  wallTex.repeat.set(4, 2);  // wall tiling
+  floorTex.repeat.set(8, 8); // floor tiling
+  ceilTex.repeat.set(2, 2);  // ceiling tiling
 
   const collisionBoxes = [];
 
@@ -78,10 +78,10 @@
 
     createWall(20, 1, 20, 0, 0, 0, floorMat);    // Floor
     createWall(20, 1, 20, 0, 5, 0, ceilMat);     // Ceiling
-    createWall(1, 5, 20, -10, 2.5, 0, wallMat);  // Left
-    createWall(1, 5, 20, 10, 2.5, 0, wallMat);   // Right
-    createWall(20, 5, 1, 0, 2.5, -10, wallMat);  // Back
-    createWall(20, 5, 1, 0, 2.5, 10, wallMat);   // Front
+    createWall(1, 5, 20, -10, 2.5, 0, wallMat);  // Left wall
+    createWall(1, 5, 20, 10, 2.5, 0, wallMat);   // Right wall
+    createWall(20, 5, 1, 0, 2.5, -10, wallMat);  // Back wall
+    createWall(20, 5, 1, 0, 2.5, 10, wallMat);   // Front wall
   }
 
   createRoom();
