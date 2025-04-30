@@ -2,214 +2,184 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Procedural Backrooms</title>
+  <title>Backrooms Maze</title>
   <style>
-    body { margin: 0; overflow: hidden; background: black; }
-    #instructions {
+    html, body { margin: 0; height: 100%; overflow: hidden; background: black; }
+    canvas { display: block; }
+    #startButton {
       position: absolute;
-      top: 50%;
-      width: 100%;
-      text-align: center;
-      font-size: 24px;
-      color: white;
-      font-family: sans-serif;
-      transform: translateY(-50%);
-      user-select: none;
-      cursor: pointer;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 24px; padding: 1em 2em;
+      z-index: 1;
     }
   </style>
 </head>
 <body>
-<div id="instructions">Click to Start</div>
+  <button id="startButton">Click to Start</button>
+  <script type="module">
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+    import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/PointerLockControls.js';
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/PointerLockControls.js"></script>
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
 
-<script>
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer();
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
+    const controls = new PointerLockControls(camera, document.body);
+    const startButton = document.getElementById('startButton');
+    startButton.addEventListener('click', () => {
+      startButton.style.display = 'none';
+      controls.lock();
+    });
 
-// Controls
-const controls = new THREE.PointerLockControls(camera, document.body);
-document.getElementById("instructions").onclick = () => controls.lock();
-controls.addEventListener('lock', () => document.getElementById("instructions").style.display = 'none');
-controls.addEventListener('unlock', () => document.getElementById("instructions").style.display = '');
-controls.getObject().position.set(0, 2, 0);
-scene.add(controls.getObject());
+    // Load textures
+    const loader = new THREE.TextureLoader();
+    const wallTex = loader.load('textures/wall.jpeg');
+    const floorTex = loader.load('textures/floor.jpg');
+    const ceilTex = loader.load('textures/ceiling.jpg');
 
-const light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1.5);
-scene.add(light);
-
-// Load textures
-const loader = new THREE.TextureLoader();
-const wallTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/wall.jpeg');
-const floorTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/floor.jpg');
-const ceilTex  = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/ceiling.jpg');
-wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
-floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
-ceilTex.wrapS  = ceilTex.wrapT  = THREE.RepeatWrapping;
-
-// Shader material function
-function makeRGBMaterial(tex, r, g, b, repeatX, repeatY) {
-  return new THREE.ShaderMaterial({
-    uniforms: {
-      tex: { value: tex },
-      rMult: { value: r },
-      gMult: { value: g },
-      bMult: { value: b },
-      repeat: { value: new THREE.Vector2(repeatX, repeatY) }
-    },
-    vertexShader: `
-      varying vec2 vUv;
-      uniform vec2 repeat;
-      void main() {
-        vUv = uv * repeat;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform sampler2D tex;
-      uniform float rMult;
-      uniform float gMult;
-      uniform float bMult;
-      varying vec2 vUv;
-      void main() {
-        vec4 color = texture2D(tex, vUv);
-        color.r *= rMult;
-        color.g *= gMult;
-        color.b *= bMult;
-        gl_FragColor = color;
-      }
-    `,
-    side: THREE.DoubleSide
-  });
-}
-
-const wallMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 1);
-const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);
-const ceilMat  = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);
-
-const collisionBoxes = [];
-
-function createBox(x, y, z, sx, sy, sz, mat) {
-  const geo = new THREE.BoxGeometry(sx, sy, sz);
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.position.set(x, y, z);
-  scene.add(mesh);
-  collisionBoxes.push(new THREE.Box3().setFromObject(mesh));
-}
-
-// Maze generation
-const mazeSize = 21;
-const grid = Array.from({ length: mazeSize }, () => Array(mazeSize).fill(1)); // 1 = wall
-
-function carveMaze(x, y) {
-  const dirs = [[0, -2], [0, 2], [-2, 0], [2, 0]].sort(() => Math.random() - 0.5);
-  for (const [dx, dy] of dirs) {
-    const nx = x + dx, ny = y + dy;
-    if (nx > 0 && ny > 0 && nx < mazeSize - 1 && ny < mazeSize - 1 && grid[ny][nx] === 1) {
-      grid[ny][nx] = 0;
-      grid[y + dy / 2][x + dx / 2] = 0;
-      carveMaze(nx, ny);
+    function makeRGBMaterial(tex, r, g, b, tx = 1, ty = 1) {
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(tx, ty);
+      return new THREE.MeshStandardMaterial({
+        map: tex,
+        color: new THREE.Color(r, g, b)
+      });
     }
-  }
-}
 
-grid[1][1] = 0;
-carveMaze(1, 1);
+    const wallMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 1);
+    const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);
+    const ceilMat  = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);
 
-// Create maze in 3D
-for (let y = 0; y < mazeSize; y++) {
-  for (let x = 0; x < mazeSize; x++) {
-    const wx = x * 4 - mazeSize * 2;
-    const wz = y * 4 - mazeSize * 2;
-    if (grid[y][x] === 1) {
-      createBox(wx, 2.5, wz, 4, 5, 4, wallMat);
-    } else {
-      createBox(wx, 0, wz, 4, 1, 4, floorMat);
-      createBox(wx, 5, wz, 4, 1, 4, ceilMat);
+    const mazeWidth = 15;
+    const mazeHeight = 15;
+    const cellSize = 10;
+    const maze = generateMaze(mazeWidth, mazeHeight);
+
+    // Build maze
+    for (let z = 0; z < mazeHeight; z++) {
+      for (let x = 0; x < mazeWidth; x++) {
+        const cell = maze[z][x];
+        const posX = x * cellSize;
+        const posZ = z * cellSize;
+
+        // Floor
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(cellSize, cellSize), floorMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.set(posX, 0, posZ);
+        scene.add(floor);
+
+        // Ceiling
+        const ceil = new THREE.Mesh(new THREE.PlaneGeometry(cellSize, cellSize), ceilMat);
+        ceil.rotation.x = Math.PI / 2;
+        ceil.position.set(posX, 10, posZ);
+        scene.add(ceil);
+
+        // Walls
+        if (cell === 1) {
+          const wall = new THREE.Mesh(new THREE.BoxGeometry(cellSize, 10, cellSize), wallMat);
+          wall.position.set(posX, 5, posZ);
+          scene.add(wall);
+        }
+      }
     }
-  }
-}
 
-// Set spawn position at first open tile
-controls.getObject().position.set(-mazeSize + 2, 2, -mazeSize + 2);
+    // Lighting
+    const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+    scene.add(ambient);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    dirLight.position.set(1, 2, 1);
+    scene.add(dirLight);
 
-// Movement and physics
-let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
-const velocity = new THREE.Vector3(), direction = new THREE.Vector3();
-const gravity = 30, jumpStrength = 10, playerHeight = 1.8, speed = 1;
+    // Controls + movement
+    camera.position.set(cellSize / 2, 2, cellSize / 2);
+    let velocity = new THREE.Vector3();
+    const speed = 1;
+    const jumpSpeed = 10;
+    let canJump = false;
 
-document.addEventListener('keydown', e => {
-  if (e.code === 'KeyW') moveForward = true;
-  if (e.code === 'KeyS') moveBackward = true;
-  if (e.code === 'KeyA') moveLeft = true;
-  if (e.code === 'KeyD') moveRight = true;
-  if (e.code === 'Space' && canJump) {
-    velocity.y = jumpStrength;
-    canJump = false;
-  }
-});
-document.addEventListener('keyup', e => {
-  if (e.code === 'KeyW') moveForward = false;
-  if (e.code === 'KeyS') moveBackward = false;
-  if (e.code === 'KeyA') moveLeft = false;
-  if (e.code === 'KeyD') moveRight = false;
-});
+    const keys = {};
+    document.addEventListener('keydown', e => keys[e.code] = true);
+    document.addEventListener('keyup', e => keys[e.code] = false);
 
-function checkCollision(pos) {
-  const size = new THREE.Vector3(1, playerHeight, 1);
-  const box = new THREE.Box3().setFromCenterAndSize(pos.clone().add(new THREE.Vector3(0, size.y / 2, 0)), size);
-  return collisionBoxes.some(other => box.intersectsBox(other));
-}
+    const clock = new THREE.Clock();
+    const floorY = 0;
 
-const clock = new THREE.Clock();
-function animate() {
-  requestAnimationFrame(animate);
-  const delta = clock.getDelta();
-  velocity.y -= gravity * delta;
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = clock.getDelta();
 
-  direction.set(Number(moveRight) - Number(moveLeft), 0, Number(moveBackward) - Number(moveForward)).normalize();
-  if (moveForward || moveBackward || moveLeft || moveRight) {
-    const moveVec = new THREE.Vector3(direction.x, 0, direction.z).applyQuaternion(camera.quaternion);
-    velocity.x -= moveVec.x * speed * 100 * delta;
-    velocity.z -= moveVec.z * speed * 100 * delta;
-  }
+      velocity.x -= velocity.x * 10.0 * dt;
+      velocity.z -= velocity.z * 10.0 * dt;
+      velocity.y -= 30 * dt;
 
-  velocity.x -= velocity.x * 10.0 * delta;
-  velocity.z -= velocity.z * 10.0 * delta;
+      const dir = new THREE.Vector3();
+      if (keys['KeyW']) dir.z -= 1;
+      if (keys['KeyS']) dir.z += 1;
+      if (keys['KeyA']) dir.x -= 1;
+      if (keys['KeyD']) dir.x += 1;
+      dir.normalize();
 
-  const pos = controls.getObject().position;
-  pos.x += -velocity.x * delta;
-  if (checkCollision(pos)) {
-    pos.x -= -velocity.x * delta;
-    velocity.x = 0;
-  }
+      if (controls.isLocked) {
+        const move = new THREE.Vector3();
+        controls.getDirection(move);
+        move.y = 0;
+        move.normalize();
 
-  pos.z += -velocity.z * delta;
-  if (checkCollision(pos)) {
-    pos.z -= -velocity.z * delta;
-    velocity.z = 0;
-  }
+        const strafe = new THREE.Vector3();
+        strafe.crossVectors(camera.up, move).normalize();
 
-  pos.y += velocity.y * delta;
-  if (checkCollision(pos)) {
-    pos.y -= velocity.y * delta;
-    velocity.y = 0;
-  }
+        velocity.addScaledVector(move, dir.z * speed);
+        velocity.addScaledVector(strafe, dir.x * speed);
 
-  if (pos.y < playerHeight) {
-    pos.y = playerHeight;
-    velocity.y = 0;
-    canJump = true;
-  }
+        controls.getObject().position.addScaledVector(velocity, dt);
 
-  renderer.render(scene, camera);
-}
-animate();
-</script>
+        // Floor collision
+        if (controls.getObject().position.y <= 2) {
+          velocity.y = 0;
+          controls.getObject().position.y = 2;
+          canJump = true;
+        }
+
+        // Jump
+        if (keys['Space'] && canJump) {
+          velocity.y += jumpSpeed;
+          canJump = false;
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // Maze generator (recursive backtracker)
+    function generateMaze(w, h) {
+      const maze = Array.from({ length: h }, () => Array(w).fill(1));
+      const stack = [];
+      const dirs = [[0, -2], [0, 2], [-2, 0], [2, 0]];
+
+      function isValid(x, y) {
+        return x > 0 && x < w - 1 && y > 0 && y < h - 1;
+      }
+
+      function carve(x, y) {
+        maze[y][x] = 0;
+        dirs.sort(() => Math.random() - 0.5);
+        for (const [dx, dy] of dirs) {
+          const nx = x + dx, ny = y + dy;
+          if (isValid(nx, ny) && maze[ny][nx] === 1) {
+            maze[y + dy / 2][x + dx / 2] = 0;
+            carve(nx, ny);
+          }
+        }
+      }
+
+      carve(1, 1);
+      return maze;
+    }
+  </script>
 </body>
 </html>
