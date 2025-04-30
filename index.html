@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Backrooms with Textured Materials</title>
+  <title>Procedural Backrooms</title>
   <style>
     body { margin: 0; overflow: hidden; background: black; }
     #instructions {
@@ -32,6 +32,7 @@ const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
+// Controls
 const controls = new THREE.PointerLockControls(camera, document.body);
 document.getElementById("instructions").onclick = () => controls.lock();
 controls.addEventListener('lock', () => document.getElementById("instructions").style.display = 'none');
@@ -42,15 +43,16 @@ scene.add(controls.getObject());
 const light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1.5);
 scene.add(light);
 
+// Load textures
 const loader = new THREE.TextureLoader();
 const wallTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/wall.jpeg');
 const floorTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/floor.jpg');
 const ceilTex  = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/ceiling.jpg');
-
 wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
 floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
 ceilTex.wrapS  = ceilTex.wrapT  = THREE.RepeatWrapping;
 
+// Shader material function
 function makeRGBMaterial(tex, r, g, b, repeatX, repeatY) {
   return new THREE.ShaderMaterial({
     uniforms: {
@@ -89,35 +91,54 @@ function makeRGBMaterial(tex, r, g, b, repeatX, repeatY) {
 const wallMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 1);
 const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);
 const ceilMat  = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);
-ceilMat.side = THREE.DoubleSide;
 
 const collisionBoxes = [];
-function createWall(w, h, d, x, y, z, material) {
-  const geo = new THREE.BoxGeometry(w, h, d);
-  const mesh = new THREE.Mesh(geo, material);
+
+function createBox(x, y, z, sx, sy, sz, mat) {
+  const geo = new THREE.BoxGeometry(sx, sy, sz);
+  const mesh = new THREE.Mesh(geo, mat);
   mesh.position.set(x, y, z);
   scene.add(mesh);
   collisionBoxes.push(new THREE.Box3().setFromObject(mesh));
 }
 
-function createRoom() {
-  createWall(20, 1, 20, 0, 0, 0, floorMat);     // floor
+// Maze generation
+const mazeSize = 21;
+const grid = Array.from({ length: mazeSize }, () => Array(mazeSize).fill(1)); // 1 = wall
 
-  // Adjust the ceiling's position closer to the player to remove the gap
-  const ceilGeo = new THREE.PlaneGeometry(20, 20);
-  const ceilMesh = new THREE.Mesh(ceilGeo, ceilMat);
-  ceilMesh.rotation.x = Math.PI / 2;
-  ceilMesh.position.y = 5;  // Adjust the y-position of the ceiling
-  scene.add(ceilMesh);
-  collisionBoxes.push(new THREE.Box3().setFromObject(ceilMesh));
-
-  createWall(1, 5, 20, -10, 2.5, 0, wallMat);
-  createWall(1, 5, 20,  10, 2.5, 0, wallMat);
-  createWall(20, 5, 1,  0, 2.5, -10, wallMat);
-  createWall(20, 5, 1,  0, 2.5, 10, wallMat);
+function carveMaze(x, y) {
+  const dirs = [[0, -2], [0, 2], [-2, 0], [2, 0]].sort(() => Math.random() - 0.5);
+  for (const [dx, dy] of dirs) {
+    const nx = x + dx, ny = y + dy;
+    if (nx > 0 && ny > 0 && nx < mazeSize - 1 && ny < mazeSize - 1 && grid[ny][nx] === 1) {
+      grid[ny][nx] = 0;
+      grid[y + dy / 2][x + dx / 2] = 0;
+      carveMaze(nx, ny);
+    }
+  }
 }
-createRoom();
 
+grid[1][1] = 0;
+carveMaze(1, 1);
+
+// Create maze in 3D
+for (let y = 0; y < mazeSize; y++) {
+  for (let x = 0; x < mazeSize; x++) {
+    const wx = x * 4 - mazeSize * 2;
+    const wz = y * 4 - mazeSize * 2;
+    if (grid[y][x] === 1) {
+      createBox(wx, 2.5, wz, 4, 5, 4, wallMat);
+    } else {
+      createBox(wx, 0, wz, 4, 1, 4, floorMat);
+      createBox(wx, 5, wz, 4, 1, 4, ceilMat);
+    }
+  }
+}
+
+// Set spawn position at first open tile
+controls.getObject().position.set(-mazeSize + 2, 2, -mazeSize + 2);
+
+// Movement and physics
 let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
 const velocity = new THREE.Vector3(), direction = new THREE.Vector3();
 const gravity = 30, jumpStrength = 10, playerHeight = 1.8, speed = 1;
