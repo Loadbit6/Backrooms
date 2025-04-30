@@ -1,185 +1,141 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Backrooms Maze</title>
-  <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: black; }
-    canvas { display: block; }
-    #startButton {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 24px; padding: 1em 2em;
-      z-index: 1;
-    }
-  </style>
-</head>
-<body>
-  <button id="startButton">Click to Start</button>
-  <script type="module">
-    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-    import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/PointerLockControls.js';
+import * as THREE from 'https://cdn.skypack.dev/three@0.152.2';
+import { PointerLockControls } from 'https://cdn.skypack.dev/three/examples/jsm/controls/PointerLockControls.js';
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
 
-    const controls = new PointerLockControls(camera, document.body);
-    const startButton = document.getElementById('startButton');
-    startButton.addEventListener('click', () => {
-      startButton.style.display = 'none';
-      controls.lock();
+const controls = new PointerLockControls(camera, document.body);
+document.body.addEventListener('click', () => controls.lock());
+scene.add(controls.getObject());
+
+const light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
+scene.add(light);
+
+// Texture loader
+const loader = new THREE.TextureLoader();
+const wallTex  = loader.load('textures/wall.jpeg');
+const floorTex = loader.load('textures/floor.jpg');
+const ceilTex  = loader.load('textures/ceiling.jpg');
+
+// Custom material with RGB + tiling
+function makeRGBMaterial(tex, r, g, b, tx, ty) {
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(tx, ty);
+  const mat = new THREE.MeshStandardMaterial({ map: tex });
+  mat.color.setRGB(r, g, b);
+  return mat;
+}
+
+// Materials
+const wallMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 1);
+const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);
+const ceilMat  = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);
+
+// Geometry
+const wallGeo = new THREE.BoxGeometry(1, 2, 1);
+const floorGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+const ceilGeo = new THREE.PlaneGeometry(1, 1).rotateX(Math.PI / 2);
+
+const collisionBoxes = [];
+
+function generateFromAsciiMap(asciiMap) {
+  const offsetX = asciiMap[0].length / 2;
+  const offsetZ = asciiMap.length / 2;
+
+  asciiMap.forEach((row, z) => {
+    [...row].forEach((ch, x) => {
+      const px = x - offsetX;
+      const pz = z - offsetZ;
+
+      const floor = new THREE.Mesh(floorGeo, floorMat);
+      floor.position.set(px, 0, pz);
+      scene.add(floor);
+
+      const ceil = new THREE.Mesh(ceilGeo, ceilMat);
+      ceil.position.set(px, 2, pz);
+      scene.add(ceil);
+
+      if (ch === '#') {
+        const wall = new THREE.Mesh(wallGeo, wallMat);
+        wall.position.set(px, 1, pz);
+        scene.add(wall);
+        collisionBoxes.push(new THREE.Box3().setFromObject(wall));
+      } else if (ch === 'S') {
+        controls.getObject().position.set(px, 1.8, pz);
+      }
     });
+  });
+}
 
-    // Load textures
-    const loader = new THREE.TextureLoader();
-    const wallTex = loader.load('textures/wall.jpeg');
-    const floorTex = loader.load('textures/floor.jpg');
-    const ceilTex = loader.load('textures/ceiling.jpg');
+// Load map from external file
+fetch('maps/level1.txt')
+  .then(res => res.text())
+  .then(text => generateFromAsciiMap(text.trim().split('\n')));
 
-    function makeRGBMaterial(tex, r, g, b, tx = 1, ty = 1) {
-      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(tx, ty);
-      return new THREE.MeshStandardMaterial({
-        map: tex,
-        color: new THREE.Color(r, g, b)
-      });
+let velocity = new THREE.Vector3();
+let direction = new THREE.Vector3();
+const speed = 1;
+const jumpSpeed = 10;
+let canJump = false;
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && canJump) {
+    velocity.y += jumpSpeed;
+    canJump = false;
+  }
+});
+
+const keys = {};
+document.addEventListener('keydown', e => keys[e.code] = true);
+document.addEventListener('keyup', e => keys[e.code] = false);
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  const delta = 0.02;
+  direction.set(
+    (keys['KeyD'] ? 1 : 0) - (keys['KeyA'] ? 1 : 0),
+    0,
+    (keys['KeyS'] ? 1 : 0) - (keys['KeyW'] ? 1 : 0)
+  );
+  direction.normalize();
+
+  const camDir = new THREE.Vector3();
+  controls.getDirection(camDir);
+  camDir.y = 0;
+  camDir.normalize();
+
+  const sideDir = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), camDir);
+  const move = camDir.multiplyScalar(direction.z).add(sideDir.multiplyScalar(direction.x));
+  move.multiplyScalar(speed * delta);
+
+  controls.getObject().position.add(move);
+
+  velocity.y -= 30 * delta;
+  controls.getObject().position.y += velocity.y * delta;
+
+  if (controls.getObject().position.y < 1.8) {
+    velocity.y = 0;
+    controls.getObject().position.y = 1.8;
+    canJump = true;
+  }
+
+  // Collision check
+  const playerBox = new THREE.Box3().setFromCenterAndSize(
+    controls.getObject().position,
+    new THREE.Vector3(0.5, 1.8, 0.5)
+  );
+  for (const box of collisionBoxes) {
+    if (playerBox.intersectsBox(box)) {
+      // Simple collision response
+      controls.getObject().position.sub(move);
+      break;
     }
+  }
 
-    const wallMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 1);
-    const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);
-    const ceilMat  = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);
-
-    const mazeWidth = 15;
-    const mazeHeight = 15;
-    const cellSize = 10;
-    const maze = generateMaze(mazeWidth, mazeHeight);
-
-    // Build maze
-    for (let z = 0; z < mazeHeight; z++) {
-      for (let x = 0; x < mazeWidth; x++) {
-        const cell = maze[z][x];
-        const posX = x * cellSize;
-        const posZ = z * cellSize;
-
-        // Floor
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(cellSize, cellSize), floorMat);
-        floor.rotation.x = -Math.PI / 2;
-        floor.position.set(posX, 0, posZ);
-        scene.add(floor);
-
-        // Ceiling
-        const ceil = new THREE.Mesh(new THREE.PlaneGeometry(cellSize, cellSize), ceilMat);
-        ceil.rotation.x = Math.PI / 2;
-        ceil.position.set(posX, 10, posZ);
-        scene.add(ceil);
-
-        // Walls
-        if (cell === 1) {
-          const wall = new THREE.Mesh(new THREE.BoxGeometry(cellSize, 10, cellSize), wallMat);
-          wall.position.set(posX, 5, posZ);
-          scene.add(wall);
-        }
-      }
-    }
-
-    // Lighting
-    const ambient = new THREE.AmbientLight(0xffffff, 0.8);
-    scene.add(ambient);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
-    dirLight.position.set(1, 2, 1);
-    scene.add(dirLight);
-
-    // Controls + movement
-    camera.position.set(cellSize / 2, 2, cellSize / 2);
-    let velocity = new THREE.Vector3();
-    const speed = 1;
-    const jumpSpeed = 10;
-    let canJump = false;
-
-    const keys = {};
-    document.addEventListener('keydown', e => keys[e.code] = true);
-    document.addEventListener('keyup', e => keys[e.code] = false);
-
-    const clock = new THREE.Clock();
-    const floorY = 0;
-
-    function animate() {
-      requestAnimationFrame(animate);
-      const dt = clock.getDelta();
-
-      velocity.x -= velocity.x * 10.0 * dt;
-      velocity.z -= velocity.z * 10.0 * dt;
-      velocity.y -= 30 * dt;
-
-      const dir = new THREE.Vector3();
-      if (keys['KeyW']) dir.z -= 1;
-      if (keys['KeyS']) dir.z += 1;
-      if (keys['KeyA']) dir.x -= 1;
-      if (keys['KeyD']) dir.x += 1;
-      dir.normalize();
-
-      if (controls.isLocked) {
-        const move = new THREE.Vector3();
-        controls.getDirection(move);
-        move.y = 0;
-        move.normalize();
-
-        const strafe = new THREE.Vector3();
-        strafe.crossVectors(camera.up, move).normalize();
-
-        velocity.addScaledVector(move, dir.z * speed);
-        velocity.addScaledVector(strafe, dir.x * speed);
-
-        controls.getObject().position.addScaledVector(velocity, dt);
-
-        // Floor collision
-        if (controls.getObject().position.y <= 2) {
-          velocity.y = 0;
-          controls.getObject().position.y = 2;
-          canJump = true;
-        }
-
-        // Jump
-        if (keys['Space'] && canJump) {
-          velocity.y += jumpSpeed;
-          canJump = false;
-        }
-      }
-
-      renderer.render(scene, camera);
-    }
-
-    animate();
-
-    // Maze generator (recursive backtracker)
-    function generateMaze(w, h) {
-      const maze = Array.from({ length: h }, () => Array(w).fill(1));
-      const stack = [];
-      const dirs = [[0, -2], [0, 2], [-2, 0], [2, 0]];
-
-      function isValid(x, y) {
-        return x > 0 && x < w - 1 && y > 0 && y < h - 1;
-      }
-
-      function carve(x, y) {
-        maze[y][x] = 0;
-        dirs.sort(() => Math.random() - 0.5);
-        for (const [dx, dy] of dirs) {
-          const nx = x + dx, ny = y + dy;
-          if (isValid(nx, ny) && maze[ny][nx] === 1) {
-            maze[y + dy / 2][x + dx / 2] = 0;
-            carve(nx, ny);
-          }
-        }
-      }
-
-      carve(1, 1);
-      return maze;
-    }
-  </script>
-</body>
-</html>
+  renderer.render(scene, camera);
+}
+animate();
