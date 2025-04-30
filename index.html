@@ -1,255 +1,178 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Backrooms Maze</title>
-  <style>
-    body { margin: 0; overflow: hidden; background: black; }
-    #instructions {
-      position: absolute;
-      top: 50%;
-      width: 100%;
-      text-align: center;
-      font-size: 24px;
-      color: white;
-      font-family: sans-serif;
-      transform: translateY(-50%);
-      user-select: none;
-      cursor: pointer;
-    }
-  </style>
-</head>
-<body>
-<div id="instructions">Click to Start</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/PointerLockControls.js"></script>
-
-<script>
-// Maze generation constants
-const mazeWidth = 10;
-const mazeHeight = 10;
-const wallHeight = 5;
-const wallThickness = 1;
-const grid = [];
-
-// Maze generation (Randomized Prim's Algorithm)
-function generateMaze() {
-  const maze = [];
-  for (let i = 0; i < mazeHeight; i++) {
-    maze.push([]);
-    for (let j = 0; j < mazeWidth; j++) {
-      maze[i].push(1);  // 1 means wall
-    }
-  }
-
-  const visited = Array.from({ length: mazeHeight }, () => Array(mazeWidth).fill(false));
-  const stack = [];
-  
-  // Random starting point
-  const startX = Math.floor(Math.random() * mazeWidth);
-  const startY = Math.floor(Math.random() * mazeHeight);
-
-  visited[startY][startX] = true;
-  stack.push([startX, startY]);
-
-  while (stack.length > 0) {
-    const [x, y] = stack[stack.length - 1];
-
-    const directions = [
-      [0, 1], [1, 0], [0, -1], [-1, 0]  // down, right, up, left
-    ];
-    directions.sort(() => Math.random() - 0.5);  // Randomize directions
-
-    let moved = false;
-    for (let [dx, dy] of directions) {
-      const nx = x + dx * 2;
-      const ny = y + dy * 2;
-
-      if (nx >= 0 && ny >= 0 && nx < mazeWidth && ny < mazeHeight && !visited[ny][nx]) {
-        visited[ny][nx] = true;
-        maze[ny][nx] = 0;  // Mark the new cell as open
-
-        // Create a path between the current and new cell
-        maze[y + dy][x + dx] = 0;
-
-        stack.push([nx, ny]);
-        moved = true;
-        break;
+  <head>
+    <meta charset="UTF-8" />
+    <title>Backrooms Maze</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: black;
       }
-    }
-
-    if (!moved) {
-      stack.pop();
-    }
-  }
-
-  return maze;
-}
-
-const maze = generateMaze();
-
-// Scene setup
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer();
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
-
-const controls = new THREE.PointerLockControls(camera, document.body);
-document.getElementById("instructions").onclick = () => controls.lock();
-controls.addEventListener('lock', () => document.getElementById("instructions").style.display = 'none');
-controls.addEventListener('unlock', () => document.getElementById("instructions").style.display = '');
-controls.getObject().position.set(0, 2, 0);
-scene.add(controls.getObject());
-
-const light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1.5);
-scene.add(light);
-
-const loader = new THREE.TextureLoader();
-const wallTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/wall.jpeg');
-const floorTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/floor.jpg');
-const ceilTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/ceiling.jpg');
-
-// Material with RGB manipulation
-function makeRGBMaterial(tex, r, g, b, repeatX, repeatY) {
-  return new THREE.ShaderMaterial({
-    uniforms: {
-      tex: { value: tex },
-      rMult: { value: r },
-      gMult: { value: g },
-      bMult: { value: b },
-      repeat: { value: new THREE.Vector2(repeatX, repeatY) }
-    },
-    vertexShader: `
-      varying vec2 vUv;
-      uniform vec2 repeat;
-      void main() {
-        vUv = uv * repeat;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      canvas {
+        display: block;
       }
-    `,
-    fragmentShader: `
-      uniform sampler2D tex;
-      uniform float rMult;
-      uniform float gMult;
-      uniform float bMult;
-      varying vec2 vUv;
-      void main() {
-        vec4 color = texture2D(tex, vUv);
-        color.r *= rMult;
-        color.g *= gMult;
-        color.b *= bMult;
-        gl_FragColor = color;
+      #startButton {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 24px;
+        padding: 12px 24px;
+        cursor: pointer;
       }
-    `,
-    side: THREE.DoubleSide
-  });
-}
+    </style>
+  </head>
+  <body>
+    <button id="startButton">Click to Start</button>
+    <script type="module">
+      import * as THREE from 'https://cdn.skypack.dev/three';
+      import { PointerLockControls } from 'https://cdn.skypack.dev/three/examples/jsm/controls/PointerLockControls.js';
 
-const wallMat = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 1);
-const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);
-const ceilMat = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);
-ceilMat.side = THREE.DoubleSide;
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(renderer.domElement);
 
-// Maze generation function for placing walls and floors
-function createMaze(maze) {
-  for (let y = 0; y < mazeHeight; y++) {
-    for (let x = 0; x < mazeWidth; x++) {
-      if (maze[y][x] === 1) {
-        createWall(wallThickness, wallHeight, wallThickness, x * wallThickness, wallHeight / 2, y * wallThickness, wallMat);
+      const controls = new PointerLockControls(camera, document.body);
+      scene.add(controls.getObject());
+
+      document.getElementById('startButton').addEventListener('click', () => {
+        controls.lock();
+      });
+
+      // Lighting
+      const light = new THREE.HemisphereLight(0xffffff, 0x888888, 1);
+      scene.add(light);
+
+      // Load and tint texture
+      function makeRGBMaterial(texture, r, g, b, repeatX, repeatY) {
+        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(repeatX, repeatY);
+        const mat = new THREE.MeshStandardMaterial({
+          map: texture,
+          color: new THREE.Color(r, g, b),
+        });
+        return mat;
       }
-      if (maze[y][x] === 0) {
-        if (y === mazeHeight - 1 || maze[y + 1][x] === 1) {
-          createWall(wallThickness, wallHeight, wallThickness, x * wallThickness, wallHeight / 2, (y + 1) * wallThickness, floorMat);
+
+      const loader = new THREE.TextureLoader();
+      const wallTex = loader.load('textures/wall.jpeg');
+      const floorTex = loader.load('textures/floor.jpg');
+      const ceilTex = loader.load('textures/ceiling.jpg');
+
+      const wallMat = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 1);
+      const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);
+      const ceilMat = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);
+
+      // Floor
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      scene.add(floor);
+
+      // Ceiling
+      const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), ceilMat);
+      ceiling.position.y = 4;
+      ceiling.rotation.x = Math.PI / 2;
+      scene.add(ceiling);
+
+      // Maze Layout (grid-based)
+      const maze = [
+        'XXXXXXXXXX',
+        'X        X',
+        'X XXXXX  X',
+        'X X   X  X',
+        'X X X XXXX',
+        'X   X    X',
+        'XXXXXXXXXX'
+      ];
+
+      const wallSize = 4;
+      for (let z = 0; z < maze.length; z++) {
+        for (let x = 0; x < maze[z].length; x++) {
+          if (maze[z][x] === 'X') {
+            const wall = new THREE.Mesh(new THREE.BoxGeometry(wallSize, 4, wallSize), wallMat);
+            wall.position.set((x - maze[0].length / 2) * wallSize, 2, (z - maze.length / 2) * wallSize);
+            wall.userData.solid = true;
+            scene.add(wall);
+          }
         }
       }
-    }
-  }
-}
 
-// Helper function to create walls
-function createWall(w, h, d, x, y, z, material) {
-  const geo = new THREE.BoxGeometry(w, h, d);
-  const mesh = new THREE.Mesh(geo, material);
-  mesh.position.set(x, y, z);
-  scene.add(mesh);
-}
+      // Player movement
+      let velocity = new THREE.Vector3();
+      let direction = new THREE.Vector3();
+      const speed = 1;
+      const jumpSpeed = 10;
+      let canJump = false;
 
-createMaze(maze);
+      const keys = {};
+      document.addEventListener('keydown', e => keys[e.code] = true);
+      document.addEventListener('keyup', e => keys[e.code] = false);
 
-// Camera movement and collision
-let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
-const velocity = new THREE.Vector3(), direction = new THREE.Vector3();
-const gravity = 30, jumpStrength = 10, playerHeight = 1.8, speed = 1;
+      let raycaster = new THREE.Raycaster();
 
-document.addEventListener('keydown', e => {
-  if (e.code === 'KeyW') moveForward = true;
-  if (e.code === 'KeyS') moveBackward = true;
-  if (e.code === 'KeyA') moveLeft = true;
-  if (e.code === 'KeyD') moveRight = true;
-  if (e.code === 'Space' && canJump) {
-    velocity.y = jumpStrength;
-    canJump = false;
-  }
-});
-document.addEventListener('keyup', e => {
-  if (e.code === 'KeyW') moveForward = false;
-  if (e.code === 'KeyS') moveBackward = false;
-  if (e.code === 'KeyA') moveLeft = false;
-  if (e.code === 'KeyD') moveRight = false;
-});
+      function checkCollisions() {
+        raycaster.set(controls.getObject().position, new THREE.Vector3(0, -1, 0));
+        const intersects = raycaster.intersectObjects(scene.children);
+        canJump = intersects.length > 0 && intersects[0].distance < 1.75;
+      }
 
-function checkCollision(pos) {
-  const size = new THREE.Vector3(1, playerHeight, 1);
-  const box = new THREE.Box3().setFromCenterAndSize(pos.clone().add(new THREE.Vector3(0, size.y / 2, 0)), size);
-  return collisionBoxes.some(other => box.intersectsBox(other));
-}
+      function animate() {
+        requestAnimationFrame(animate);
 
-const clock = new THREE.Clock();
-function animate() {
-  requestAnimationFrame(animate);
-  const delta = clock.getDelta();
-  velocity.y -= gravity * delta;
+        direction.set(0, 0, 0);
+        if (keys['KeyW']) direction.z -= 1;
+        if (keys['KeyS']) direction.z += 1;
+        if (keys['KeyA']) direction.x -= 1;
+        if (keys['KeyD']) direction.x += 1;
+        direction.normalize();
 
-  direction.set(Number(moveRight) - Number(moveLeft), 0, Number(moveBackward) - Number(moveForward)).normalize();
-  if (moveForward || moveBackward || moveLeft || moveRight) {
-    const moveVec = new THREE.Vector3(direction.x, 0, direction.z).applyQuaternion(camera.quaternion);
-    velocity.x -= moveVec.x * speed * 100 * delta;
-    velocity.z -= moveVec.z * speed * 100 * delta;
-  }
+        if (controls.isLocked) {
+          const front = new THREE.Vector3();
+          controls.getDirection(front);
+          front.y = 0;
+          front.normalize();
 
-  velocity.x -= velocity.x * 10.0 * delta;
-  velocity.z -= velocity.z * 10.0 * delta;
+          const side = new THREE.Vector3();
+          side.crossVectors(front, new THREE.Vector3(0, 1, 0)).normalize();
 
-  const pos = controls.getObject().position;
-  pos.x += -velocity.x * delta;
-  if (checkCollision(pos)) {
-    pos.x -= -velocity.x * delta;
-    velocity.x = 0;
-  }
+          velocity.x = (front.x * direction.z + side.x * direction.x) * speed;
+          velocity.z = (front.z * direction.z + side.z * direction.x) * speed;
 
-  pos.z += -velocity.z * delta;
-  if (checkCollision(pos)) {
-    pos.z -= -velocity.z * delta;
-    velocity.z = 0;
-  }
+          velocity.y -= 0.5; // gravity
+          controls.moveRight(velocity.x);
+          controls.moveForward(velocity.z);
+          controls.getObject().position.y += velocity.y * 0.1;
 
-  pos.y += velocity.y * delta;
-  if (checkCollision(pos)) {
-    pos.y -= velocity.y * delta;
-    velocity.y = 0;
-  }
+          checkCollisions();
 
-  if (pos.y < playerHeight) {
-    pos.y = playerHeight;
-    velocity.y = 0;
-    canJump = true;
-  }
+          if (canJump) {
+            velocity.y = Math.max(0, velocity.y);
+            if (keys['Space']) {
+              velocity.y = jumpSpeed;
+            }
+          }
 
-  renderer.render(scene, camera);
-}
-animate();
-</script>
-</body>
+          if (controls.getObject().position.y < 1.75) {
+            controls.getObject().position.y = 1.75;
+            velocity.y = 0;
+            canJump = true;
+          }
+        }
+
+        renderer.render(scene, camera);
+      }
+
+      controls.getObject().position.set(0, 1.75, 0); // start just above floor
+      animate();
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
 </html>
