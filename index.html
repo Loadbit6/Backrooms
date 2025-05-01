@@ -205,10 +205,16 @@ function animate() {
     }
 
     // Update sprint bar
-    sprintBar.style.width = `${sprintAmount * 100}%`;
-    sprintBar.style.background = cooldown ? 'red' : (sprinting ? 'yellow' : 'limegreen');
+    sprintBar.style.width = (sprintAmount * 100) + '%';
+    if (sprinting) {
+      sprintBar.style.background = 'limegreen';
+    } else if (cooldown) {
+      sprintBar.style.background = 'red';
+    } else {
+      sprintBar.style.background = 'lightgreen';
+    }
 
-    // Update velocity
+    // Update movement speed
     const delta = 0.1;
     velocity.x = direction.x * speed * delta;
     velocity.z = direction.z * speed * delta;
@@ -222,7 +228,6 @@ function animate() {
     const right = new THREE.Vector3();
     right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
 
-    // Move the player
     const move = new THREE.Vector3();
     move.addScaledVector(forward, -velocity.z);  // Negative velocity.z for correct movement direction
     move.addScaledVector(right, velocity.x);
