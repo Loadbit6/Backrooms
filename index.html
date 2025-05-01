@@ -27,7 +27,7 @@
 
 <script>
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
@@ -88,15 +88,23 @@ function makeRGBMaterial(tex, r, g, b, repeatX = 1, repeatY = 1) {
   });
 }
 
-const wallBaseMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 1);
-const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);
-const ceilMat  = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);
+const wallBaseMat = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 1);
+const floorMat    = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);
+const ceilMat     = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);
 
 const collisionBoxes = [];
+
+function applyDynamicUV(material, w, h, d = 1) {
+  const sizeX = w;
+  const sizeY = h > 1 ? h : d; // use depth for floors
+  const baseRepeat = material.uniforms.repeat.value;
+  material.uniforms.uvScale.value.set(sizeX / baseRepeat.x, sizeY / baseRepeat.y);
+}
+
 function createWall(w, h, d, x, y, z, baseMaterial) {
   const geo = new THREE.BoxGeometry(w, h, d);
   const mat = baseMaterial.clone();
-  mat.uniforms.uvScale.value.set(w / 2, h / 2); // dynamic scaling
+  applyDynamicUV(mat, w, h, d);
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.set(x, y, z);
   scene.add(mesh);
@@ -104,15 +112,19 @@ function createWall(w, h, d, x, y, z, baseMaterial) {
 }
 
 function createRoom() {
-  createWall(20, 1, 20, 0, 0, 0, floorMat); // floor
+  // Floor
+  createWall(20, 1, 20, 0, 0, 0, floorMat);
 
+  // Ceiling
   const ceilGeo = new THREE.PlaneGeometry(20, 20);
   const ceilMesh = new THREE.Mesh(ceilGeo, ceilMat);
   ceilMesh.rotation.x = Math.PI / 2;
   ceilMesh.position.y = 5;
   scene.add(ceilMesh);
   collisionBoxes.push(new THREE.Box3().setFromObject(ceilMesh));
+  applyDynamicUV(ceilMat, ceilGeo.parameters.width, ceilGeo.parameters.height);
 
+  // Walls
   createWall(1, 5, 20, -10, 2.5, 0, wallBaseMat);
   createWall(1, 5, 20,  10, 2.5, 0, wallBaseMat);
   createWall(20, 5, 1,  0, 2.5, -10, wallBaseMat);
