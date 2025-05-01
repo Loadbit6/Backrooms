@@ -47,6 +47,7 @@ const wallTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backroom
 const floorTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/floor.jpg');
 const ceilTex  = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/ceiling.jpg');
 
+// Wrap textures to repeat
 wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
 floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
 ceilTex.wrapS  = ceilTex.wrapT  = THREE.RepeatWrapping;
@@ -85,12 +86,13 @@ function makeRGBMaterial(tex, r, g, b, width, height) {
     side: THREE.DoubleSide
   });
 
-  // Adjust the texture repeat based on the surface size
+  // Adjust the texture repeat dynamically based on the surface size
   tex.repeat.set(width, height); // Apply tile scaling based on surface size
 
   return material;
 }
 
+// Texture scaling adjustments
 const wallMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 3);  // Wall with scaling based on surface size
 const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);  // Floor with tiling 8x8
 const ceilMat  = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);  // Ceiling with tiling 2x2
