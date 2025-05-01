@@ -195,13 +195,14 @@ function animate() {
       }
     } else {
       sprinting = false;
-      if (!cooldown && sprintAmount < 1) {
-        sprintAmount += sprintRegenRate;
-      }
+    }
+
+    if (!cooldown && sprintAmount < 1) {
+      sprintAmount += sprintRegenRate; // Always regenerate sprint when not in cooldown
     }
 
     if (cooldown && sprintAmount >= 1) {
-      cooldown = false;
+      cooldown = false; // Reset cooldown when fully refilled
     }
 
     // Update sprint bar
