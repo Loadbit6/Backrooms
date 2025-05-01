@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Backrooms with Textured Materials</title>
+  <title>Backrooms Maze</title>
   <style>
     body { margin: 0; overflow: hidden; background: black; }
     #instructions {
@@ -101,13 +101,12 @@ function createWall(w, h, d, x, y, z, material) {
 }
 
 function createRoom() {
-  createWall(20, 1, 20, 0, 0, 0, floorMat);     // floor
+  createWall(20, 1, 20, 0, 0, 0, floorMat); // floor
 
-  // Adjust the ceiling's position closer to the player to remove the gap
   const ceilGeo = new THREE.PlaneGeometry(20, 20);
   const ceilMesh = new THREE.Mesh(ceilGeo, ceilMat);
   ceilMesh.rotation.x = Math.PI / 2;
-  ceilMesh.position.y = 5;  // Adjust the y-position of the ceiling
+  ceilMesh.position.y = 5; // adjusted to avoid gap
   scene.add(ceilMesh);
   collisionBoxes.push(new THREE.Box3().setFromObject(ceilMesh));
 
@@ -118,72 +117,53 @@ function createRoom() {
 }
 createRoom();
 
-let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
-const velocity = new THREE.Vector3(), direction = new THREE.Vector3();
-const gravity = 30, jumpStrength = 10, playerHeight = 1.8, speed = 1;
+// ✅ Load external maze data from GitHub
+fetch('https://raw.githubusercontent.com/Loadbit6/Backrooms/7da3900a93c44841c52c9a9478076852d420b11d/maze.json')
+  .then(response => response.json())
+  .then(data => {
+    data.forEach(wall => {
+      createWall(wall.w, wall.h, wall.d, wall.x, wall.y, wall.z, wallMat);
+    });
+  });
 
-document.addEventListener('keydown', e => {
-  if (e.code === 'KeyW') moveForward = true;
-  if (e.code === 'KeyS') moveBackward = true;
-  if (e.code === 'KeyA') moveLeft = true;
-  if (e.code === 'KeyD') moveRight = true;
-  if (e.code === 'Space' && canJump) {
-    velocity.y = jumpStrength;
-    canJump = false;
-  }
-});
-document.addEventListener('keyup', e => {
-  if (e.code === 'KeyW') moveForward = false;
-  if (e.code === 'KeyS') moveBackward = false;
-  if (e.code === 'KeyA') moveLeft = false;
-  if (e.code === 'KeyD') moveRight = false;
-});
+const velocity = new THREE.Vector3();
+const direction = new THREE.Vector3();
+const keys = {};
 
-function checkCollision(pos) {
-  const size = new THREE.Vector3(1, playerHeight, 1);
-  const box = new THREE.Box3().setFromCenterAndSize(pos.clone().add(new THREE.Vector3(0, size.y / 2, 0)), size);
-  return collisionBoxes.some(other => box.intersectsBox(other));
+document.addEventListener('keydown', e => keys[e.code] = true);
+document.addEventListener('keyup', e => keys[e.code] = false);
+
+function checkCollisions(pos) {
+  const box = new THREE.Box3().setFromCenterAndSize(pos, new THREE.Vector3(1, 2, 1));
+  return collisionBoxes.some(c => c.intersectsBox(box));
 }
 
-const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
-  const delta = clock.getDelta();
-  velocity.y -= gravity * delta;
 
-  direction.set(Number(moveRight) - Number(moveLeft), 0, Number(moveBackward) - Number(moveForward)).normalize();
-  if (moveForward || moveBackward || moveLeft || moveRight) {
-    const moveVec = new THREE.Vector3(direction.x, 0, direction.z).applyQuaternion(camera.quaternion);
-    velocity.x -= moveVec.x * speed * 100 * delta;
-    velocity.z -= moveVec.z * speed * 100 * delta;
-  }
+  if (controls.isLocked) {
+    direction.set(0, 0, 0);
+    if (keys['KeyW']) direction.z -= 1;
+    if (keys['KeyS']) direction.z += 1;
+    if (keys['KeyA']) direction.x -= 1;
+    if (keys['KeyD']) direction.x += 1;
 
-  velocity.x -= velocity.x * 10.0 * delta;
-  velocity.z -= velocity.z * 10.0 * delta;
+    direction.normalize();
+    const speed = 1;
+    const delta = 0.1;
 
-  const pos = controls.getObject().position;
-  pos.x += -velocity.x * delta;
-  if (checkCollision(pos)) {
-    pos.x -= -velocity.x * delta;
-    velocity.x = 0;
-  }
+    velocity.x = direction.x * speed * delta;
+    velocity.z = direction.z * speed * delta;
 
-  pos.z += -velocity.z * delta;
-  if (checkCollision(pos)) {
-    pos.z -= -velocity.z * delta;
-    velocity.z = 0;
-  }
+    const move = new THREE.Vector3();
+    move.copy(controls.getDirection(new THREE.Vector3()).setY(0).normalize());
+    move.multiplyScalar(velocity.z);
+    move.add(controls.getDirection(new THREE.Vector3()).cross(new THREE.Vector3(0, 1, 0)).setY(0).normalize().multiplyScalar(velocity.x));
 
-  pos.y += velocity.y * delta;
-  if (checkCollision(pos)) {
-    pos.y -= velocity.y * delta;
-    velocity.y = 0;
-  }
-
-  if (pos.y < playerHeight) {
-    pos.y = playerHeight;
-    velocity.y = 0;
-    canJump = true;
+    const nextPos = controls.getObject().position.clone().add(move);
+    if (!checkCollisions(nextPos)) {
+      controls.getObject().position.copy(nextPos);
+    }
   }
 
   renderer.render(scene, camera);
