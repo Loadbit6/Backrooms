@@ -51,22 +51,22 @@ wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
 floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
 ceilTex.wrapS  = ceilTex.wrapT  = THREE.RepeatWrapping;
 
-function makeRGBMaterial(tex, r, g, b) {
+function makeRGBMaterial(tex, r, g, b, repeatX = 1, repeatY = 1) {
   return new THREE.ShaderMaterial({
     uniforms: {
       tex: { value: tex },
       rMult: { value: r },
       gMult: { value: g },
-      bMult: { value: b }
+      bMult: { value: b },
+      repeat: { value: new THREE.Vector2(repeatX, repeatY) },
+      uvScale: { value: new THREE.Vector2(1, 1) }
     },
     vertexShader: `
       varying vec2 vUv;
+      uniform vec2 repeat;
+      uniform vec2 uvScale;
       void main() {
-        vec3 scaleX = vec3(modelMatrix[0].x, modelMatrix[1].x, modelMatrix[2].x);
-        vec3 scaleY = vec3(modelMatrix[0].y, modelMatrix[1].y, modelMatrix[2].y);
-        float scaleU = length(scaleX);
-        float scaleV = length(scaleY);
-        vUv = uv * vec2(scaleU, scaleV);
+        vUv = uv * uvScale * repeat;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
     `,
@@ -88,14 +88,21 @@ function makeRGBMaterial(tex, r, g, b) {
   });
 }
 
-const wallMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8);
-const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1);
-const ceilMat  = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4);
+const wallBaseMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 1);
+const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);
+const ceilMat  = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);
+ceilMat.side = THREE.DoubleSide;
 
 const collisionBoxes = [];
-function createWall(w, h, d, x, y, z, material) {
+function createWall(w, h, d, x, y, z, baseMaterial) {
   const geo = new THREE.BoxGeometry(w, h, d);
-  const mesh = new THREE.Mesh(geo, material);
+  const mat = baseMaterial.clone();
+
+  const horizontal = Math.max(w, d);
+  const vertical = h;
+
+  mat.uniforms.uvScale.value.set(horizontal / 2, vertical / 2);  // Adjust tiling per object
+  const mesh = new THREE.Mesh(geo, mat);
   mesh.position.set(x, y, z);
   scene.add(mesh);
   collisionBoxes.push(new THREE.Box3().setFromObject(mesh));
@@ -103,21 +110,26 @@ function createWall(w, h, d, x, y, z, material) {
 
 function createRoom() {
   createWall(20, 1, 20, 0, 0, 0, floorMat); // floor
-  createWall(20, 1, 20, 0, 5, 0, ceilMat);  // ceiling
 
-  createWall(1, 5, 20, -10, 2.5, 0, wallMat);
-  createWall(1, 5, 20,  10, 2.5, 0, wallMat);
-  createWall(20, 5, 1,  0, 2.5, -10, wallMat);
-  createWall(20, 5, 1,  0, 2.5, 10, wallMat);
+  const ceilGeo = new THREE.PlaneGeometry(20, 20);
+  const ceilMesh = new THREE.Mesh(ceilGeo, ceilMat);
+  ceilMesh.rotation.x = Math.PI / 2;
+  ceilMesh.position.y = 5;
+  scene.add(ceilMesh);
+  collisionBoxes.push(new THREE.Box3().setFromObject(ceilMesh));
+
+  createWall(1, 5, 20, -10, 2.5, 0, wallBaseMat);
+  createWall(1, 5, 20,  10, 2.5, 0, wallBaseMat);
+  createWall(20, 5, 1,  0, 2.5, -10, wallBaseMat);
+  createWall(20, 5, 1,  0, 2.5, 10, wallBaseMat);
 }
 createRoom();
 
-// ✅ Load maze from GitHub
 fetch('https://raw.githubusercontent.com/Loadbit6/Backrooms/7da3900a93c44841c52c9a9478076852d420b11d/maze.json')
-  .then(response => response.json())
+  .then(res => res.json())
   .then(data => {
     data.forEach(wall => {
-      createWall(wall.w, wall.h, wall.d, wall.x, wall.y, wall.z, wallMat);
+      createWall(wall.w, wall.h, wall.d, wall.x, wall.y, wall.z, wallBaseMat);
     });
   });
 
@@ -168,7 +180,7 @@ function animate() {
       controls.getObject().position.x = tryX.x;
     }
 
-    const tryZ = controls.getObject().position.clone().add(new THREE.Vector3(0, 0, move.z));
+    const tryZ = currentPos.clone().add(new THREE.Vector3(0, 0, move.z));
     if (!checkCollisions(tryZ)) {
       controls.getObject().position.z = tryZ.z;
     }
