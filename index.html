@@ -142,8 +142,8 @@ function animate() {
 
   if (controls.isLocked) {
     direction.set(0, 0, 0);
-    if (keys['KeyW']) direction.z -= 1;
-    if (keys['KeyS']) direction.z += 1;
+    if (keys['KeyW']) direction.z -= 1;  // Forward
+    if (keys['KeyS']) direction.z += 1;  // Backward
     if (keys['KeyA']) direction.x -= 1;
     if (keys['KeyD']) direction.x += 1;
 
@@ -163,8 +163,9 @@ function animate() {
     const right = new THREE.Vector3();
     right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
 
+    // Invert the Z axis to fix forward/backward movement
     const move = new THREE.Vector3();
-    move.addScaledVector(forward, velocity.z);
+    move.addScaledVector(forward, -velocity.z);  // Negative velocity.z for correct movement direction
     move.addScaledVector(right, velocity.x);
 
     // ✅ Slide along walls: check X and Z movement separately
