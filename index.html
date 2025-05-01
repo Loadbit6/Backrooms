@@ -47,23 +47,17 @@ const wallTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backroom
 const floorTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/floor.jpg');
 const ceilTex  = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/ceiling.jpg');
 
-// Texture wrapping setup
+// Set repeat for texture tiling
 wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
 floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
 ceilTex.wrapS  = ceilTex.wrapT  = THREE.RepeatWrapping;
 
-// Function to apply texture tiling without distortion
+// Function to create walls with texture tiling
 function createWall(w, h, d, x, y, z, texture) {
   const geometry = new THREE.BoxGeometry(w, h, d);
-  
-  // Calculate UV coordinates for correct tiling
-  geometry.faceVertexUvs[0] = geometry.faceVertexUvs[0].map(function(uvs) {
-    uvs.forEach(function(uv) {
-      uv.x *= w / 10;  // Tiling adjustment
-      uv.y *= h / 10;  // Tiling adjustment
-    });
-    return uvs;
-  });
+
+  // Apply texture repeat based on surface size
+  texture.repeat.set(w / 10, h / 10); // Adjust tiling ratio (w/10, h/10)
   
   const material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
   const mesh = new THREE.Mesh(geometry, material);
