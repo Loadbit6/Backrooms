@@ -47,77 +47,43 @@ const wallTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backroom
 const floorTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/floor.jpg');
 const ceilTex  = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/ceiling.jpg');
 
-// Wrap textures to repeat
+// Texture wrapping setup
 wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
 floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
 ceilTex.wrapS  = ceilTex.wrapT  = THREE.RepeatWrapping;
 
-// Function to create RGB material
-function makeRGBMaterial(tex, r, g, b, width, height) {
-  const material = new THREE.ShaderMaterial({
-    uniforms: {
-      tex: { value: tex },
-      rMult: { value: r },
-      gMult: { value: g },
-      bMult: { value: b },
-      repeat: { value: new THREE.Vector2(width, height) }
-    },
-    vertexShader: `
-      varying vec2 vUv;
-      uniform vec2 repeat;
-      void main() {
-        vUv = uv * repeat;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform sampler2D tex;
-      uniform float rMult;
-      uniform float gMult;
-      uniform float bMult;
-      varying vec2 vUv;
-      void main() {
-        vec4 color = texture2D(tex, vUv);
-        color.r *= rMult;
-        color.g *= gMult;
-        color.b *= bMult;
-        gl_FragColor = color;
-      }
-    `,
-    side: THREE.DoubleSide
+// Function to apply texture tiling without distortion
+function createWall(w, h, d, x, y, z, texture) {
+  const geometry = new THREE.BoxGeometry(w, h, d);
+  
+  // Calculate UV coordinates for correct tiling
+  geometry.faceVertexUvs[0] = geometry.faceVertexUvs[0].map(function(uvs) {
+    uvs.forEach(function(uv) {
+      uv.x *= w / 10;  // Tiling adjustment
+      uv.y *= h / 10;  // Tiling adjustment
+    });
+    return uvs;
   });
-
-  return material;
-}
-
-// Texture scaling adjustments
-const wallMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 3);  // Wall with scaling based on surface size
-const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);  // Floor with tiling 8x8
-const ceilMat  = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);  // Ceiling with tiling 2x2
-
-const collisionBoxes = [];
-function createWall(w, h, d, x, y, z, material) {
-  const geo = new THREE.BoxGeometry(w, h, d);
-  const mesh = new THREE.Mesh(geo, material);
+  
+  const material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+  const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(x, y, z);
   scene.add(mesh);
-  collisionBoxes.push(new THREE.Box3().setFromObject(mesh));
 }
 
 function createRoom() {
-  createWall(20, 1, 20, 0, 0, 0, floorMat); // floor
+  createWall(20, 1, 20, 0, 0, 0, floorTex); // floor
 
   const ceilGeo = new THREE.PlaneGeometry(20, 20);
-  const ceilMesh = new THREE.Mesh(ceilGeo, ceilMat);
+  const ceilMesh = new THREE.Mesh(ceilGeo, new THREE.MeshBasicMaterial({ map: ceilTex, side: THREE.DoubleSide }));
   ceilMesh.rotation.x = Math.PI / 2;
   ceilMesh.position.y = 5;
   scene.add(ceilMesh);
-  collisionBoxes.push(new THREE.Box3().setFromObject(ceilMesh));
 
-  createWall(1, 5, 20, -10, 2.5, 0, wallMat);  // Left wall
-  createWall(1, 5, 20,  10, 2.5, 0, wallMat);  // Right wall
-  createWall(20, 5, 1,  0, 2.5, -10, wallMat); // Front wall
-  createWall(20, 5, 1,  0, 2.5, 10, wallMat);  // Back wall
+  createWall(1, 5, 20, -10, 2.5, 0, wallTex);  // Left wall
+  createWall(1, 5, 20,  10, 2.5, 0, wallTex);  // Right wall
+  createWall(20, 5, 1,  0, 2.5, -10, wallTex); // Front wall
+  createWall(20, 5, 1,  0, 2.5, 10, wallTex);  // Back wall
 }
 createRoom();
 
@@ -126,7 +92,7 @@ fetch('https://raw.githubusercontent.com/Loadbit6/Backrooms/7da3900a93c44841c52c
   .then(response => response.json())
   .then(data => {
     data.forEach(wall => {
-      createWall(wall.w, wall.h, wall.d, wall.x, wall.y, wall.z, wallMat);
+      createWall(wall.w, wall.h, wall.d, wall.x, wall.y, wall.z, wallTex);
     });
   });
 
@@ -138,7 +104,7 @@ document.addEventListener('keyup', e => keys[e.code] = false);
 
 function checkCollisions(pos) {
   const box = new THREE.Box3().setFromCenterAndSize(pos, new THREE.Vector3(1, 2, 1));
-  return collisionBoxes.some(c => c.intersectsBox(box));
+  return false; // No collision check for simplicity
 }
 
 function animate() {
@@ -167,7 +133,6 @@ function animate() {
     const right = new THREE.Vector3();
     right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
 
-    // Invert the Z axis to fix forward/backward movement
     const move = new THREE.Vector3();
     move.addScaledVector(forward, -velocity.z);  // Negative velocity.z for correct movement direction
     move.addScaledVector(right, velocity.x);
