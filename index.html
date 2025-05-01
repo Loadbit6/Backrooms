@@ -47,37 +47,50 @@ const wallTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backroom
 const floorTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/floor.jpg');
 const ceilTex  = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/ceiling.jpg');
 
-// Set repeat for texture tiling
+// Ensure tiling
 wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
 floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
 ceilTex.wrapS  = ceilTex.wrapT  = THREE.RepeatWrapping;
 
-// Function to create walls with texture tiling
-function createWall(w, h, d, x, y, z, texture) {
-  const geometry = new THREE.BoxGeometry(w, h, d);
+function makeRGBMaterial(tex, r, g, b, repeatX, repeatY) {
+  return new THREE.MeshBasicMaterial({
+    map: tex,
+    side: THREE.DoubleSide,
+    color: new THREE.Color(r, g, b),
+    repeat: new THREE.Vector2(repeatX, repeatY)  // Correct repeat tiling
+  });
+}
 
-  // Apply texture repeat based on surface size
-  texture.repeat.set(w / 10, h / 10); // Adjust tiling ratio (w/10, h/10)
-  
-  const material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
-  const mesh = new THREE.Mesh(geometry, material);
+const wallMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 1);
+const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);
+const ceilMat  = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);
+
+// Make sure ceiling material is double-sided
+ceilMat.side = THREE.DoubleSide;
+
+const collisionBoxes = [];
+function createWall(w, h, d, x, y, z, material) {
+  const geo = new THREE.BoxGeometry(w, h, d);
+  const mesh = new THREE.Mesh(geo, material);
   mesh.position.set(x, y, z);
   scene.add(mesh);
+  collisionBoxes.push(new THREE.Box3().setFromObject(mesh));
 }
 
 function createRoom() {
-  createWall(20, 1, 20, 0, 0, 0, floorTex); // floor
+  createWall(20, 1, 20, 0, 0, 0, floorMat); // floor
 
   const ceilGeo = new THREE.PlaneGeometry(20, 20);
-  const ceilMesh = new THREE.Mesh(ceilGeo, new THREE.MeshBasicMaterial({ map: ceilTex, side: THREE.DoubleSide }));
+  const ceilMesh = new THREE.Mesh(ceilGeo, ceilMat);
   ceilMesh.rotation.x = Math.PI / 2;
   ceilMesh.position.y = 5;
   scene.add(ceilMesh);
+  collisionBoxes.push(new THREE.Box3().setFromObject(ceilMesh));
 
-  createWall(1, 5, 20, -10, 2.5, 0, wallTex);  // Left wall
-  createWall(1, 5, 20,  10, 2.5, 0, wallTex);  // Right wall
-  createWall(20, 5, 1,  0, 2.5, -10, wallTex); // Front wall
-  createWall(20, 5, 1,  0, 2.5, 10, wallTex);  // Back wall
+  createWall(1, 5, 20, -10, 2.5, 0, wallMat);
+  createWall(1, 5, 20,  10, 2.5, 0, wallMat);
+  createWall(20, 5, 1,  0, 2.5, -10, wallMat);
+  createWall(20, 5, 1,  0, 2.5, 10, wallMat);
 }
 createRoom();
 
@@ -86,7 +99,7 @@ fetch('https://raw.githubusercontent.com/Loadbit6/Backrooms/7da3900a93c44841c52c
   .then(response => response.json())
   .then(data => {
     data.forEach(wall => {
-      createWall(wall.w, wall.h, wall.d, wall.x, wall.y, wall.z, wallTex);
+      createWall(wall.w, wall.h, wall.d, wall.x, wall.y, wall.z, wallMat);
     });
   });
 
@@ -98,7 +111,7 @@ document.addEventListener('keyup', e => keys[e.code] = false);
 
 function checkCollisions(pos) {
   const box = new THREE.Box3().setFromCenterAndSize(pos, new THREE.Vector3(1, 2, 1));
-  return false; // No collision check for simplicity
+  return collisionBoxes.some(c => c.intersectsBox(box));
 }
 
 function animate() {
@@ -127,6 +140,7 @@ function animate() {
     const right = new THREE.Vector3();
     right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
 
+    // Invert the Z axis to fix forward/backward movement
     const move = new THREE.Vector3();
     move.addScaledVector(forward, -velocity.z);  // Negative velocity.z for correct movement direction
     move.addScaledVector(right, velocity.x);
