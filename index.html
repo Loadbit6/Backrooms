@@ -91,9 +91,9 @@ function makeRGBMaterial(tex, r, g, b, width, height) {
   return material;
 }
 
-const wallMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 3);
-const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);
-const ceilMat  = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);
+const wallMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 3);  // Wall with scaling based on surface size
+const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);  // Floor with tiling 8x8
+const ceilMat  = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);  // Ceiling with tiling 2x2
 ceilMat.side = THREE.DoubleSide;
 
 const collisionBoxes = [];
@@ -115,10 +115,10 @@ function createRoom() {
   scene.add(ceilMesh);
   collisionBoxes.push(new THREE.Box3().setFromObject(ceilMesh));
 
-  createWall(1, 5, 20, -10, 2.5, 0, wallMat);
-  createWall(1, 5, 20,  10, 2.5, 0, wallMat);
-  createWall(20, 5, 1,  0, 2.5, -10, wallMat);
-  createWall(20, 5, 1,  0, 2.5, 10, wallMat);
+  createWall(1, 5, 20, -10, 2.5, 0, wallMat);  // Left wall
+  createWall(1, 5, 20,  10, 2.5, 0, wallMat);  // Right wall
+  createWall(20, 5, 1,  0, 2.5, -10, wallMat); // Front wall
+  createWall(20, 5, 1,  0, 2.5, 10, wallMat);  // Back wall
 }
 createRoom();
 
