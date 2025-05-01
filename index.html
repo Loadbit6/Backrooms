@@ -106,7 +106,7 @@ function createRoom() {
   const ceilGeo = new THREE.PlaneGeometry(20, 20);
   const ceilMesh = new THREE.Mesh(ceilGeo, ceilMat);
   ceilMesh.rotation.x = Math.PI / 2;
-  ceilMesh.position.y = 5; // adjusted to avoid gap
+  ceilMesh.position.y = 5;
   scene.add(ceilMesh);
   collisionBoxes.push(new THREE.Box3().setFromObject(ceilMesh));
 
@@ -117,7 +117,7 @@ function createRoom() {
 }
 createRoom();
 
-// ✅ Load external maze data from GitHub
+// ✅ Load maze from your GitHub file
 fetch('https://raw.githubusercontent.com/Loadbit6/Backrooms/7da3900a93c44841c52c9a9478076852d420b11d/maze.json')
   .then(response => response.json())
   .then(data => {
@@ -129,7 +129,6 @@ fetch('https://raw.githubusercontent.com/Loadbit6/Backrooms/7da3900a93c44841c52c
 const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
 const keys = {};
-
 document.addEventListener('keydown', e => keys[e.code] = true);
 document.addEventListener('keyup', e => keys[e.code] = false);
 
@@ -155,14 +154,30 @@ function animate() {
     velocity.x = direction.x * speed * delta;
     velocity.z = direction.z * speed * delta;
 
-    const move = new THREE.Vector3();
-    move.copy(controls.getDirection(new THREE.Vector3()).setY(0).normalize());
-    move.multiplyScalar(velocity.z);
-    move.add(controls.getDirection(new THREE.Vector3()).cross(new THREE.Vector3(0, 1, 0)).setY(0).normalize().multiplyScalar(velocity.x));
+    // Movement aligned to camera
+    const forward = new THREE.Vector3();
+    controls.getDirection(forward);
+    forward.y = 0;
+    forward.normalize();
 
-    const nextPos = controls.getObject().position.clone().add(move);
-    if (!checkCollisions(nextPos)) {
-      controls.getObject().position.copy(nextPos);
+    const right = new THREE.Vector3();
+    right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+    const move = new THREE.Vector3();
+    move.addScaledVector(forward, velocity.z);
+    move.addScaledVector(right, velocity.x);
+
+    // ✅ Slide along walls: check X and Z movement separately
+    const currentPos = controls.getObject().position.clone();
+
+    const tryX = currentPos.clone().add(new THREE.Vector3(move.x, 0, 0));
+    if (!checkCollisions(tryX)) {
+      controls.getObject().position.x = tryX.x;
+    }
+
+    const tryZ = controls.getObject().position.clone().add(new THREE.Vector3(0, 0, move.z));
+    if (!checkCollisions(tryZ)) {
+      controls.getObject().position.z = tryZ.z;
     }
   }
 
