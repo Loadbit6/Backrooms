@@ -110,11 +110,31 @@ function createWall(w, h, d, x, y, z, scaleX = 1, scaleY = 1, scaleZ = 1) {
   scene.add(mesh);
 }
 
+function createFloor(w, d, x, y, z, scaleX = 1, scaleY = 1, scaleZ = 1) {
+  const geo = new THREE.PlaneGeometry(w, d);
+  const material = makeRGBMaterial(floorTex, 1.0, 1.0, 1.0, scaleX, scaleZ, 1);
+  const mesh = new THREE.Mesh(geo, material);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(x, y, z);
+  scene.add(mesh);
+}
+
+function createCeiling(w, d, x, y, z, scaleX = 1, scaleY = 1, scaleZ = 1) {
+  const geo = new THREE.PlaneGeometry(w, d);
+  const material = makeRGBMaterial(ceilTex, 1.0, 1.0, 1.0, scaleX, scaleZ, 1);
+  const mesh = new THREE.Mesh(geo, material);
+  mesh.rotation.x = Math.PI / 2;
+  mesh.position.set(x, y, z);
+  scene.add(mesh);
+}
+
 fetch('maze.json')
   .then(response => response.json())
   .then(data => {
     data.forEach(wall => {
       createWall(wall.w, wall.h, wall.d, wall.x, wall.y, wall.z, wall.scaleX, wall.scaleY, wall.scaleZ);
+      createFloor(wall.w, wall.d, wall.x, wall.y - 2.5, wall.z, wall.scaleX, wall.scaleZ);
+      createCeiling(wall.w, wall.d, wall.x, wall.y + 2.5, wall.z, wall.scaleX, wall.scaleZ);
     });
   });
 
