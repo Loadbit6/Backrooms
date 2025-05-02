@@ -24,24 +24,20 @@
       transform: translateX(-50%);
       width: 200px;
       height: 20px;
-      background: rgba(255, 255, 255, 0.1);
-      border: 2px solid #fff;
-      border-radius: 10px;
-      overflow: hidden;
+      background: rgba(255,255,255,0.2);
+      border: 1px solid #aaa;
     }
     #sprintBar {
-      width: 100%;
       height: 100%;
+      width: 100%;
       background: limegreen;
-      transition: width 0.1s linear;
+      transition: background 0.2s;
     }
   </style>
 </head>
 <body>
 <div id="instructions">Click to Start</div>
-<div id="sprintBarContainer">
-  <div id="sprintBar"></div>
-</div>
+<div id="sprintBarContainer"><div id="sprintBar"></div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/PointerLockControls.js"></script>
@@ -138,7 +134,6 @@ function createRoom() {
 }
 createRoom();
 
-// Load maze from GitHub
 fetch('https://raw.githubusercontent.com/Loadbit6/Backrooms/7da3900a93c44841c52c9a9478076852d420b11d/maze.json')
   .then(response => response.json())
   .then(data => {
@@ -147,80 +142,61 @@ fetch('https://raw.githubusercontent.com/Loadbit6/Backrooms/7da3900a93c44841c52c
     });
   });
 
-// Sprint variables
-let sprintAmount = 1.0;  // Full sprint meter
-let sprinting = false;
-let cooldown = false;
-const sprintBar = document.getElementById('sprintBar');
-const sprintSpeed = 1.5;  // Sprint speed factor
-const walkSpeed = 1;      // Normal walking speed
-const sprintDrainRate = 0.02;  // How quickly sprint drains
-const sprintRegenRate = 0.005; // How quickly sprint regenerates
-
-// Movement variables
 const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
 const keys = {};
 document.addEventListener('keydown', e => keys[e.code] = true);
 document.addEventListener('keyup', e => keys[e.code] = false);
 
-// Collision check
 function checkCollisions(pos) {
   const box = new THREE.Box3().setFromCenterAndSize(pos, new THREE.Vector3(1, 2, 1));
   return collisionBoxes.some(c => c.intersectsBox(box));
 }
+
+// Sprint system
+let sprintAmount = 1;
+const sprintBar = document.getElementById('sprintBar');
+let cooldown = false;
 
 function animate() {
   requestAnimationFrame(animate);
 
   if (controls.isLocked) {
     direction.set(0, 0, 0);
-    if (keys['KeyW']) direction.z -= 1;  // Forward
-    if (keys['KeyS']) direction.z += 1;  // Backward
+    if (keys['KeyW']) direction.z -= 1;
+    if (keys['KeyS']) direction.z += 1;
     if (keys['KeyA']) direction.x -= 1;
     if (keys['KeyD']) direction.x += 1;
 
     direction.normalize();
-    let speed = walkSpeed;
+    const delta = 0.1;
 
-    // Sprinting logic
-    if (keys['ShiftLeft'] && !cooldown && sprintAmount > 0) {
-      sprinting = true;
-      speed = sprintSpeed;
-      sprintAmount -= sprintDrainRate;
+    let speed = 1;
+    const isSprinting = keys['ShiftLeft'] && sprintAmount > 0 && !cooldown;
+    if (isSprinting) {
+      speed = 2;
+      sprintAmount -= 0.01;
       if (sprintAmount <= 0) {
         sprintAmount = 0;
         cooldown = true;
-        sprinting = false;
       }
-    } else {
-      sprinting = false;
     }
 
-    if (!cooldown && sprintAmount < 1) {
-      sprintAmount += sprintRegenRate; // Always regenerate sprint when not in cooldown
+    if (sprintAmount < 1) {
+      sprintAmount += 0.004;
+      if (sprintAmount > 1) sprintAmount = 1;
     }
 
     if (cooldown && sprintAmount >= 1) {
-      cooldown = false; // Reset cooldown when fully refilled
+      cooldown = false;
     }
 
-    // Update sprint bar
     sprintBar.style.width = (sprintAmount * 100) + '%';
-    if (sprinting) {
-      sprintBar.style.background = 'limegreen';
-    } else if (cooldown) {
-      sprintBar.style.background = 'red';
-    } else {
-      sprintBar.style.background = 'lightgreen';
-    }
+    sprintBar.style.background = cooldown ? 'red' : 'limegreen';
 
-    // Update movement speed
-    const delta = 0.1;
     velocity.x = direction.x * speed * delta;
     velocity.z = direction.z * speed * delta;
 
-    // Movement aligned to camera
     const forward = new THREE.Vector3();
     controls.getDirection(forward);
     forward.y = 0;
@@ -230,10 +206,9 @@ function animate() {
     right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
 
     const move = new THREE.Vector3();
-    move.addScaledVector(forward, -velocity.z);  // Negative velocity.z for correct movement direction
+    move.addScaledVector(forward, -velocity.z);
     move.addScaledVector(right, velocity.x);
 
-    // Slide along walls: check X and Z movement separately
     const currentPos = controls.getObject().position.clone();
 
     const tryX = currentPos.clone().add(new THREE.Vector3(move.x, 0, 0));
@@ -249,7 +224,6 @@ function animate() {
 
   renderer.render(scene, camera);
 }
-
 animate();
 </script>
 </body>
