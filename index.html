@@ -17,26 +17,10 @@
       user-select: none;
       cursor: pointer;
     }
-    #sprintBar {
-      position: absolute;
-      bottom: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 200px;
-      height: 10px;
-      background: #222;
-      border: 1px solid #555;
-    }
-    #sprintFill {
-      height: 100%;
-      width: 100%;
-      background: lime;
-    }
   </style>
 </head>
 <body>
 <div id="instructions">Click to Start</div>
-<div id="sprintBar"><div id="sprintFill"></div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/PointerLockControls.js"></script>
@@ -105,6 +89,7 @@ function makeRGBMaterial(tex, r, g, b, repeatX, repeatY) {
 const wallMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 1);
 const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);
 const ceilMat  = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);
+ceilMat.side = THREE.DoubleSide;
 
 const collisionBoxes = [];
 function createWall(w, h, d, x, y, z, material) {
@@ -132,6 +117,7 @@ function createRoom() {
 }
 createRoom();
 
+// ✅ Load maze from your GitHub file
 fetch('https://raw.githubusercontent.com/Loadbit6/Backrooms/7da3900a93c44841c52c9a9478076852d420b11d/maze.json')
   .then(response => response.json())
   .then(data => {
@@ -140,58 +126,37 @@ fetch('https://raw.githubusercontent.com/Loadbit6/Backrooms/7da3900a93c44841c52c
     });
   });
 
+const velocity = new THREE.Vector3();
+const direction = new THREE.Vector3();
 const keys = {};
 document.addEventListener('keydown', e => keys[e.code] = true);
 document.addEventListener('keyup', e => keys[e.code] = false);
-
-const velocity = new THREE.Vector3();
-let velocityY = 0;
-let isOnGround = false;
-
-let sprintAmount = 1.0;
-let cooldown = false;
-const sprintFill = document.getElementById('sprintFill');
 
 function checkCollisions(pos) {
   const box = new THREE.Box3().setFromCenterAndSize(pos, new THREE.Vector3(1, 2, 1));
   return collisionBoxes.some(c => c.intersectsBox(box));
 }
 
+const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
 
+  const delta = clock.getDelta(); // time between frames in seconds
+
   if (controls.isLocked) {
-    const direction = new THREE.Vector3();
     direction.set(0, 0, 0);
     if (keys['KeyW']) direction.z -= 1;
     if (keys['KeyS']) direction.z += 1;
     if (keys['KeyA']) direction.x -= 1;
     if (keys['KeyD']) direction.x += 1;
+
     direction.normalize();
+    const speed = 3; // units per second
 
-    let speed = 0.15;
-    const sprinting = keys['ShiftLeft'] && sprintAmount > 0 && !cooldown;
-    if (sprinting) {
-      speed = 0.5;
-      sprintAmount -= 0.01;
-      if (sprintAmount <= 0) {
-        sprintAmount = 0;
-        cooldown = true;
-      }
-    } else if (sprintAmount < 1.0) {
-      sprintAmount += cooldown ? 0.005 : 0.01;
-      if (sprintAmount >= 1.0) {
-        sprintAmount = 1.0;
-        cooldown = false;
-      }
-    }
+    velocity.x = direction.x * speed * delta;
+    velocity.z = direction.z * speed * delta;
 
-    sprintFill.style.width = (sprintAmount * 100) + "%";
-    sprintFill.style.background = cooldown ? 'red' : 'lime';
-
-    velocity.x = direction.x * speed * 0.1;
-    velocity.z = direction.z * speed * 0.1;
-
+    // Movement aligned to camera
     const forward = new THREE.Vector3();
     controls.getDirection(forward);
     forward.y = 0;
@@ -204,31 +169,17 @@ function animate() {
     move.addScaledVector(forward, -velocity.z);
     move.addScaledVector(right, velocity.x);
 
+    // Slide against walls
     const currentPos = controls.getObject().position.clone();
+
     const tryX = currentPos.clone().add(new THREE.Vector3(move.x, 0, 0));
-    const tryZ = currentPos.clone().add(new THREE.Vector3(0, 0, move.z));
-
-    if (!checkCollisions(tryX)) controls.getObject().position.x = tryX.x;
-    if (!checkCollisions(tryZ)) controls.getObject().position.z = tryZ.z;
-
-    // Jumping & Gravity
-    const pos = controls.getObject().position;
-    const nextY = pos.y + velocityY;
-    const footPos = pos.clone(); footPos.y = nextY;
-
-    if (nextY <= 2) {
-      velocityY = 0;
-      isOnGround = true;
-      pos.y = 2;
-    } else {
-      velocityY -= 0.0015; // gravity
-      isOnGround = false;
-      pos.y = nextY;
+    if (!checkCollisions(tryX)) {
+      controls.getObject().position.x = tryX.x;
     }
 
-    if (isOnGround && keys['Space']) {
-      velocityY = 0.065; // jump strength
-      isOnGround = false;
+    const tryZ = currentPos.clone().add(new THREE.Vector3(0, 0, move.z));
+    if (!checkCollisions(tryZ)) {
+      controls.getObject().position.z = tryZ.z;
     }
   }
 
