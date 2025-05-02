@@ -17,27 +17,27 @@
       user-select: none;
       cursor: pointer;
     }
-    #sprintBarContainer {
+    #sprintBar {
       position: absolute;
-      bottom: 20px;
+      bottom: 10px;
       left: 50%;
       transform: translateX(-50%);
-      width: 200px;
+      width: 300px;
       height: 20px;
-      background: rgba(255,255,255,0.2);
-      border: 1px solid #aaa;
+      background: #444;
+      border: 2px solid white;
     }
-    #sprintBar {
+    #sprintFill {
       height: 100%;
+      background: lime;
       width: 100%;
-      background: limegreen;
-      transition: background 0.2s;
+      transition: width 0.1s;
     }
   </style>
 </head>
 <body>
 <div id="instructions">Click to Start</div>
-<div id="sprintBarContainer"><div id="sprintBar"></div></div>
+<div id="sprintBar"><div id="sprintFill"></div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/PointerLockControls.js"></script>
@@ -145,6 +145,14 @@ fetch('https://raw.githubusercontent.com/Loadbit6/Backrooms/7da3900a93c44841c52c
 const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
 const keys = {};
+let verticalVelocity = 0;
+let isOnGround = false;
+const gravity = -0.05;
+const jumpStrength = 1.0;
+
+let sprintAmount = 1.0;
+let cooldown = false;
+
 document.addEventListener('keydown', e => keys[e.code] = true);
 document.addEventListener('keyup', e => keys[e.code] = false);
 
@@ -153,10 +161,7 @@ function checkCollisions(pos) {
   return collisionBoxes.some(c => c.intersectsBox(box));
 }
 
-// Sprint system
-let sprintAmount = 1;
-const sprintBar = document.getElementById('sprintBar');
-let cooldown = false;
+const sprintFill = document.getElementById("sprintFill");
 
 function animate() {
   requestAnimationFrame(animate);
@@ -167,35 +172,30 @@ function animate() {
     if (keys['KeyS']) direction.z += 1;
     if (keys['KeyA']) direction.x -= 1;
     if (keys['KeyD']) direction.x += 1;
-
     direction.normalize();
-    const delta = 0.1;
 
-    let speed = 1;
-    const isSprinting = keys['ShiftLeft'] && sprintAmount > 0 && !cooldown;
-    if (isSprinting) {
+    let speed = 0.5;
+    const sprinting = keys['ShiftLeft'] && sprintAmount > 0 && !cooldown;
+    if (sprinting) {
       speed = 2;
       sprintAmount -= 0.01;
       if (sprintAmount <= 0) {
         sprintAmount = 0;
         cooldown = true;
       }
+    } else if (sprintAmount < 1.0) {
+      sprintAmount += cooldown ? 0.005 : 0.01;
+      if (sprintAmount >= 1.0) {
+        sprintAmount = 1.0;
+        cooldown = false;
+      }
     }
 
-    if (sprintAmount < 1) {
-      sprintAmount += 0.004;
-      if (sprintAmount > 1) sprintAmount = 1;
-    }
+    sprintFill.style.width = (sprintAmount * 100) + "%";
+    sprintFill.style.background = cooldown ? 'red' : 'lime';
 
-    if (cooldown && sprintAmount >= 1) {
-      cooldown = false;
-    }
-
-    sprintBar.style.width = (sprintAmount * 100) + '%';
-    sprintBar.style.background = cooldown ? 'red' : 'limegreen';
-
-    velocity.x = direction.x * speed * delta;
-    velocity.z = direction.z * speed * delta;
+    velocity.x = direction.x * speed * 0.1;
+    velocity.z = direction.z * speed * 0.1;
 
     const forward = new THREE.Vector3();
     controls.getDirection(forward);
@@ -212,13 +212,25 @@ function animate() {
     const currentPos = controls.getObject().position.clone();
 
     const tryX = currentPos.clone().add(new THREE.Vector3(move.x, 0, 0));
-    if (!checkCollisions(tryX)) {
-      controls.getObject().position.x = tryX.x;
-    }
+    if (!checkCollisions(tryX)) controls.getObject().position.x = tryX.x;
 
     const tryZ = currentPos.clone().add(new THREE.Vector3(0, 0, move.z));
-    if (!checkCollisions(tryZ)) {
-      controls.getObject().position.z = tryZ.z;
+    if (!checkCollisions(tryZ)) controls.getObject().position.z = tryZ.z;
+
+    // Gravity & Jump
+    verticalVelocity += gravity;
+    const tryY = currentPos.clone().add(new THREE.Vector3(0, verticalVelocity, 0));
+    if (!checkCollisions(tryY)) {
+      controls.getObject().position.y = tryY.y;
+      isOnGround = false;
+    } else {
+      if (verticalVelocity < 0) isOnGround = true;
+      verticalVelocity = 0;
+    }
+
+    if (keys['Space'] && isOnGround) {
+      verticalVelocity = jumpStrength;
+      isOnGround = false;
     }
   }
 
