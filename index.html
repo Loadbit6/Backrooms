@@ -67,20 +67,20 @@ wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
 floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
 ceilTex.wrapS  = ceilTex.wrapT  = THREE.RepeatWrapping;
 
-function makeRGBMaterial(tex, r, g, b, repeatX, repeatY, repeatZ) {
+function makeRGBMaterial(tex, r, g, b, repeatX, repeatY) {
   return new THREE.ShaderMaterial({
     uniforms: {
       tex: { value: tex },
       rMult: { value: r },
       gMult: { value: g },
       bMult: { value: b },
-      repeat: { value: new THREE.Vector3(repeatX, repeatY, repeatZ) }
+      repeat: { value: new THREE.Vector2(repeatX, repeatY) }
     },
     vertexShader: `
       varying vec2 vUv;
-      uniform vec3 repeat;
+      uniform vec2 repeat;
       void main() {
-        vUv = uv * repeat.xy;
+        vUv = uv * repeat;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
     `,
@@ -102,39 +102,41 @@ function makeRGBMaterial(tex, r, g, b, repeatX, repeatY, repeatZ) {
   });
 }
 
-function createWall(w, h, d, x, y, z, scaleX = 1, scaleY = 1, scaleZ = 1) {
+const wallMat  = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, 2, 1);
+const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);
+const ceilMat  = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);
+
+const collisionBoxes = [];
+function createWall(w, h, d, x, y, z, material) {
   const geo = new THREE.BoxGeometry(w, h, d);
-  const material = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, scaleX, scaleY, scaleZ);
   const mesh = new THREE.Mesh(geo, material);
   mesh.position.set(x, y, z);
   scene.add(mesh);
+  collisionBoxes.push(new THREE.Box3().setFromObject(mesh));
 }
 
-function createFloor(w, d, x, y, z, scaleX = 1, scaleY = 1, scaleZ = 1) {
-  const geo = new THREE.PlaneGeometry(w, d);
-  const material = makeRGBMaterial(floorTex, 1.0, 1.0, 1.0, scaleX, scaleZ, 1);
-  const mesh = new THREE.Mesh(geo, material);
-  mesh.rotation.x = -Math.PI / 2;
-  mesh.position.set(x, y, z);
-  scene.add(mesh);
-}
+function createRoom() {
+  createWall(20, 1, 20, 0, 0, 0, floorMat); // floor
 
-function createCeiling(w, d, x, y, z, scaleX = 1, scaleY = 1, scaleZ = 1) {
-  const geo = new THREE.PlaneGeometry(w, d);
-  const material = makeRGBMaterial(ceilTex, 1.0, 1.0, 1.0, scaleX, scaleZ, 1);
-  const mesh = new THREE.Mesh(geo, material);
-  mesh.rotation.x = Math.PI / 2;
-  mesh.position.set(x, y, z);
-  scene.add(mesh);
-}
+  const ceilGeo = new THREE.PlaneGeometry(20, 20);
+  const ceilMesh = new THREE.Mesh(ceilGeo, ceilMat);
+  ceilMesh.rotation.x = Math.PI / 2;
+  ceilMesh.position.y = 5;
+  scene.add(ceilMesh);
+  collisionBoxes.push(new THREE.Box3().setFromObject(ceilMesh));
 
-fetch('maze.json')
+  createWall(1, 5, 20, -10, 2.5, 0, wallMat);
+  createWall(1, 5, 20,  10, 2.5, 0, wallMat);
+  createWall(20, 5, 1,  0, 2.5, -10, wallMat);
+  createWall(20, 5, 1,  0, 2.5, 10, wallMat);
+}
+createRoom();
+
+fetch('https://raw.githubusercontent.com/Loadbit6/Backrooms/7da3900a93c44841c52c9a9478076852d420b11d/maze.json')
   .then(response => response.json())
   .then(data => {
     data.forEach(wall => {
-      createWall(wall.w, wall.h, wall.d, wall.x, wall.y, wall.z, wall.scaleX, wall.scaleY, wall.scaleZ);
-      createFloor(wall.w, wall.d, wall.x, wall.y - 2.5, wall.z, wall.scaleX, wall.scaleZ);
-      createCeiling(wall.w, wall.d, wall.x, wall.y + 2.5, wall.z, wall.scaleX, wall.scaleZ);
+      createWall(wall.w, wall.h, wall.d, wall.x, wall.y, wall.z, wallMat);
     });
   });
 
@@ -167,7 +169,7 @@ function animate() {
     if (keys['KeyD']) direction.x += 1;
     direction.normalize();
 
-    let speed = 0.25;
+    let speed = 0.15;
     const sprinting = keys['ShiftLeft'] && sprintAmount > 0 && !cooldown;
     if (sprinting) {
       speed = 0.5;
@@ -219,13 +221,13 @@ function animate() {
       isOnGround = true;
       pos.y = 2;
     } else {
-      velocityY -= 0.015; // gravity
+      velocityY -= 0.0015; // gravity
       isOnGround = false;
       pos.y = nextY;
     }
 
     if (isOnGround && keys['Space']) {
-      velocityY = 0.3;
+      velocityY = 0.065; // jump strength
       isOnGround = false;
     }
   }
