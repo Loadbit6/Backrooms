@@ -169,10 +169,10 @@ function animate() {
     if (keys['KeyD']) direction.x += 1;
     direction.normalize();
 
-    let speed = 0.5;
+    let speed = 0.4;
     const sprinting = keys['ShiftLeft'] && sprintAmount > 0 && !cooldown;
     if (sprinting) {
-      speed = 1;
+      speed = 0.7;
       sprintAmount -= 0.01;
       if (sprintAmount <= 0) {
         sprintAmount = 0;
