@@ -67,20 +67,20 @@ wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
 floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
 ceilTex.wrapS  = ceilTex.wrapT  = THREE.RepeatWrapping;
 
-function makeRGBMaterial(tex, r, g, b, repeatX, repeatY) {
+function makeRGBMaterial(tex, r, g, b, repeatX, repeatY, repeatZ) {
   return new THREE.ShaderMaterial({
     uniforms: {
       tex: { value: tex },
       rMult: { value: r },
       gMult: { value: g },
       bMult: { value: b },
-      repeat: { value: new THREE.Vector2(repeatX, repeatY) }
+      repeat: { value: new THREE.Vector3(repeatX, repeatY, repeatZ) }
     },
     vertexShader: `
       varying vec2 vUv;
-      uniform vec2 repeat;
+      uniform vec3 repeat;
       void main() {
-        vUv = uv * repeat;
+        vUv = uv * repeat.xy;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
     `,
@@ -102,51 +102,19 @@ function makeRGBMaterial(tex, r, g, b, repeatX, repeatY) {
   });
 }
 
-function makeWallMaterial(w, h, d, scaleX, scaleY) {
-  return makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, scaleX || w || 1, scaleY || h || 1);
-}
-
-const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);
-const ceilMat  = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);
-
-const collisionBoxes = [];
-function createWall(w, h, d, x, y, z, scaleX, scaleY) {
+function createWall(w, h, d, x, y, z, scaleX = 1, scaleY = 1, scaleZ = 1) {
   const geo = new THREE.BoxGeometry(w, h, d);
-  const mat = makeWallMaterial(w, h, d, scaleX, scaleY);
-  const mesh = new THREE.Mesh(geo, mat);
+  const material = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, scaleX, scaleY, scaleZ);
+  const mesh = new THREE.Mesh(geo, material);
   mesh.position.set(x, y, z);
   scene.add(mesh);
-  collisionBoxes.push(new THREE.Box3().setFromObject(mesh));
 }
 
-function createRoom() {
-  createWall(20, 1, 20, 0, 0, 0, 8, 8); // floor
-
-  const ceilGeo = new THREE.PlaneGeometry(20, 20);
-  const ceilMesh = new THREE.Mesh(ceilGeo, ceilMat);
-  ceilMesh.rotation.x = Math.PI / 2;
-  ceilMesh.position.y = 5;
-  scene.add(ceilMesh);
-  collisionBoxes.push(new THREE.Box3().setFromObject(ceilMesh));
-
-  createWall(1, 5, 20, -10, 2.5, 0, 2, 1);
-  createWall(1, 5, 20,  10, 2.5, 0, 2, 1);
-  createWall(20, 5, 1,  0, 2.5, -10, 2, 1);
-  createWall(20, 5, 1,  0, 2.5, 10, 2, 1);
-}
-createRoom();
-
-// Load from maze.json
-fetch('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/maze.json')
-  .then(res => res.json())
+fetch('maze.json')
+  .then(response => response.json())
   .then(data => {
     data.forEach(wall => {
-      createWall(
-        wall.w, wall.h, wall.d,
-        wall.x, wall.y, wall.z,
-        wall.scaleX ?? wall.w,
-        wall.scaleY ?? wall.h
-      );
+      createWall(wall.w, wall.h, wall.d, wall.x, wall.y, wall.z, wall.scaleX, wall.scaleY, wall.scaleZ);
     });
   });
 
@@ -179,10 +147,10 @@ function animate() {
     if (keys['KeyD']) direction.x += 1;
     direction.normalize();
 
-    let speed = 0.15;
+    let speed = 0.25;
     const sprinting = keys['ShiftLeft'] && sprintAmount > 0 && !cooldown;
     if (sprinting) {
-      speed = 0.3;
+      speed = 0.5;
       sprintAmount -= 0.01;
       if (sprintAmount <= 0) {
         sprintAmount = 0;
@@ -231,13 +199,13 @@ function animate() {
       isOnGround = true;
       pos.y = 2;
     } else {
-      velocityY -= 0.0015;
+      velocityY -= 0.015; // gravity
       isOnGround = false;
       pos.y = nextY;
     }
 
     if (isOnGround && keys['Space']) {
-      velocityY = 0.065;
+      velocityY = 0.3;
       isOnGround = false;
     }
   }
