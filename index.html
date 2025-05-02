@@ -2,72 +2,85 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Backrooms Game</title>
+  <title>Backrooms Maze</title>
   <style>
     body { margin: 0; overflow: hidden; background: black; }
-    canvas { display: block; }
+    #instructions {
+      position: absolute;
+      top: 50%;
+      width: 100%;
+      text-align: center;
+      font-size: 24px;
+      color: white;
+      font-family: sans-serif;
+      transform: translateY(-50%);
+      user-select: none;
+      cursor: pointer;
+    }
+    #sprintBar {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 200px;
+      height: 10px;
+      background: #222;
+      border: 1px solid #555;
+    }
+    #sprintFill {
+      height: 100%;
+      width: 100%;
+      background: lime;
+    }
   </style>
 </head>
 <body>
-<script type="module">
-import * as THREE from 'https://cdn.skypack.dev/three@0.160.0';
-import { PointerLockControls } from 'https://cdn.skypack.dev/three/examples/jsm/controls/PointerLockControls.js';
+<div id="instructions">Click to Start</div>
+<div id="sprintBar"><div id="sprintFill"></div></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/PointerLockControls.js"></script>
+
+<script>
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x000000);
-
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Lighting
-const light = new THREE.AmbientLight(0xffffff, 0.7);
+const controls = new THREE.PointerLockControls(camera, document.body);
+document.getElementById("instructions").onclick = () => controls.lock();
+controls.addEventListener('lock', () => document.getElementById("instructions").style.display = 'none');
+controls.addEventListener('unlock', () => document.getElementById("instructions").style.display = '');
+controls.getObject().position.set(0, 2, 0);
+scene.add(controls.getObject());
+
+const light = new THREE.HemisphereLight(0xffffbb, 0x080820, 1.5);
 scene.add(light);
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-dirLight.position.set(1, 2, 1);
-scene.add(dirLight);
 
-// Controls
-const controls = new PointerLockControls(camera, document.body);
-document.body.addEventListener('click', () => controls.lock());
-camera.position.y = 1.6;
+const loader = new THREE.TextureLoader();
+const wallTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/wall.jpeg');
+const floorTex = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/floor.jpg');
+const ceilTex  = loader.load('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/textures/ceiling.jpg');
 
-// Load Texture
-const texLoader = new THREE.TextureLoader();
-const wallTex = texLoader.load('https://i.imgur.com/Uv4y7yS.jpg'); // Example texture
 wallTex.wrapS = wallTex.wrapT = THREE.RepeatWrapping;
+floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
+ceilTex.wrapS  = ceilTex.wrapT  = THREE.RepeatWrapping;
 
-// Shader Material
-function makeRGBMaterial(tex, r, g, b, w, h, d, scaleX, scaleY, scaleZ) {
+function makeRGBMaterial(tex, r, g, b, repeatX, repeatY) {
   return new THREE.ShaderMaterial({
     uniforms: {
       tex: { value: tex },
       rMult: { value: r },
       gMult: { value: g },
       bMult: { value: b },
-      repeatW: { value: w / scaleX },
-      repeatH: { value: h / scaleY },
-      repeatD: { value: d / scaleZ }
+      repeat: { value: new THREE.Vector2(repeatX, repeatY) }
     },
     vertexShader: `
       varying vec2 vUv;
-      attribute float faceIndex;
-      uniform float repeatW;
-      uniform float repeatH;
-      uniform float repeatD;
-
+      uniform vec2 repeat;
       void main() {
-        vUv = uv;
-
-        if (faceIndex == 0.0 || faceIndex == 1.0) {
-          vUv *= vec2(repeatD, repeatH);
-        } else if (faceIndex == 2.0 || faceIndex == 3.0) {
-          vUv *= vec2(repeatW, repeatD);
-        } else if (faceIndex == 4.0 || faceIndex == 5.0) {
-          vUv *= vec2(repeatW, repeatH);
-        }
-
+        vUv = uv * repeat;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
     `,
@@ -89,93 +102,144 @@ function makeRGBMaterial(tex, r, g, b, w, h, d, scaleX, scaleY, scaleZ) {
   });
 }
 
-// Wall Generator
-function createWall(w, h, d, x, y, z, material) {
-  const geometry = new THREE.BoxGeometry(w, h, d);
+function makeWallMaterial(w, h, d, scaleX, scaleY) {
+  return makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, scaleX || w || 1, scaleY || h || 1);
+}
 
-  // Assign faceIndex per vertex (6 faces * 6 vertices = 36 entries)
-  const faceIndices = [];
-  for (let i = 0; i < 6; i++) {
-    for (let j = 0; j < 6; j++) {
-      faceIndices.push(i);
-    }
-  }
-  geometry.setAttribute('faceIndex', new THREE.BufferAttribute(new Float32Array(faceIndices), 1));
+const floorMat = makeRGBMaterial(floorTex, 1.1, 1.1, 1.1, 8, 8);
+const ceilMat  = makeRGBMaterial(ceilTex, 0.75, 0.7, 0.4, 2, 2);
 
-  const mesh = new THREE.Mesh(geometry, material);
+const collisionBoxes = [];
+function createWall(w, h, d, x, y, z, scaleX, scaleY) {
+  const geo = new THREE.BoxGeometry(w, h, d);
+  const mat = makeWallMaterial(w, h, d, scaleX, scaleY);
+  const mesh = new THREE.Mesh(geo, mat);
   mesh.position.set(x, y, z);
   scene.add(mesh);
+  collisionBoxes.push(new THREE.Box3().setFromObject(mesh));
 }
 
-// Load walls from JSON
-async function loadWalls() {
-  const res = await fetch('walls.json');
-  const wallData = await res.json();
-  for (const wall of wallData) {
-    const scale = wall.textureScale || { x: 1, y: 1, z: 1 };
-    const mat = makeRGBMaterial(wallTex, 0.9, 0.8, 0.8, wall.w, wall.h, wall.d, scale.x, scale.y, scale.z);
-    createWall(wall.w, wall.h, wall.d, wall.x, wall.y, wall.z, mat);
-  }
-}
-loadWalls();
+function createRoom() {
+  createWall(20, 1, 20, 0, 0, 0, 8, 8); // floor
 
-// Movement
-const velocity = new THREE.Vector3();
+  const ceilGeo = new THREE.PlaneGeometry(20, 20);
+  const ceilMesh = new THREE.Mesh(ceilGeo, ceilMat);
+  ceilMesh.rotation.x = Math.PI / 2;
+  ceilMesh.position.y = 5;
+  scene.add(ceilMesh);
+  collisionBoxes.push(new THREE.Box3().setFromObject(ceilMesh));
+
+  createWall(1, 5, 20, -10, 2.5, 0, 2, 1);
+  createWall(1, 5, 20,  10, 2.5, 0, 2, 1);
+  createWall(20, 5, 1,  0, 2.5, -10, 2, 1);
+  createWall(20, 5, 1,  0, 2.5, 10, 2, 1);
+}
+createRoom();
+
+// Load from maze.json
+fetch('https://raw.githubusercontent.com/Loadbit6/Backrooms/main/maze.json')
+  .then(res => res.json())
+  .then(data => {
+    data.forEach(wall => {
+      createWall(
+        wall.w, wall.h, wall.d,
+        wall.x, wall.y, wall.z,
+        wall.scaleX ?? wall.w,
+        wall.scaleY ?? wall.h
+      );
+    });
+  });
+
 const keys = {};
 document.addEventListener('keydown', e => keys[e.code] = true);
 document.addEventListener('keyup', e => keys[e.code] = false);
 
-let canJump = false;
-let sprinting = false;
-let sprintTime = 3, sprintCooldown = 5;
-let sprintRemaining = sprintTime, sprintCooldownTimer = 0;
-let onGround = false;
+const velocity = new THREE.Vector3();
+let velocityY = 0;
+let isOnGround = false;
+
+let sprintAmount = 1.0;
+let cooldown = false;
+const sprintFill = document.getElementById('sprintFill');
+
+function checkCollisions(pos) {
+  const box = new THREE.Box3().setFromCenterAndSize(pos, new THREE.Vector3(1, 2, 1));
+  return collisionBoxes.some(c => c.intersectsBox(box));
+}
 
 function animate() {
   requestAnimationFrame(animate);
 
-  const speed = keys['ShiftLeft'] && sprintRemaining > 0 ? 6 : 3;
-  const dt = 0.016;
+  if (controls.isLocked) {
+    const direction = new THREE.Vector3();
+    direction.set(0, 0, 0);
+    if (keys['KeyW']) direction.z -= 1;
+    if (keys['KeyS']) direction.z += 1;
+    if (keys['KeyA']) direction.x -= 1;
+    if (keys['KeyD']) direction.x += 1;
+    direction.normalize();
 
-  const forward = new THREE.Vector3();
-  controls.getDirection(forward);
-  forward.y = 0;
-  forward.normalize();
-
-  const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
-
-  velocity.x = velocity.z = 0;
-  if (keys['KeyW']) velocity.add(forward.clone().multiplyScalar(speed));
-  if (keys['KeyS']) velocity.add(forward.clone().multiplyScalar(-speed));
-  if (keys['KeyA']) velocity.add(right.clone().multiplyScalar(-speed));
-  if (keys['KeyD']) velocity.add(right.clone().multiplyScalar(speed));
-
-  if (!onGround) velocity.y -= 0.0015;
-  if (onGround && keys['Space']) {
-    velocity.y = 0.065;
-    onGround = false;
-  }
-
-  camera.position.addScaledVector(velocity, dt);
-  if (camera.position.y <= 1.6) {
-    camera.position.y = 1.6;
-    velocity.y = 0;
-    onGround = true;
-  }
-
-  if (keys['ShiftLeft'] && sprintRemaining > 0) {
-    sprinting = true;
-    sprintRemaining -= dt;
-  } else {
-    sprinting = false;
-    if (sprintRemaining < sprintTime) {
-      sprintCooldownTimer += dt;
-      if (sprintCooldownTimer >= sprintCooldown) {
-        sprintRemaining += dt;
-        sprintRemaining = Math.min(sprintRemaining, sprintTime);
+    let speed = 0.15;
+    const sprinting = keys['ShiftLeft'] && sprintAmount > 0 && !cooldown;
+    if (sprinting) {
+      speed = 0.3;
+      sprintAmount -= 0.01;
+      if (sprintAmount <= 0) {
+        sprintAmount = 0;
+        cooldown = true;
+      }
+    } else if (sprintAmount < 1.0) {
+      sprintAmount += cooldown ? 0.005 : 0.01;
+      if (sprintAmount >= 1.0) {
+        sprintAmount = 1.0;
+        cooldown = false;
       }
     }
-    if (!keys['ShiftLeft']) sprintCooldownTimer = 0;
+
+    sprintFill.style.width = (sprintAmount * 100) + "%";
+    sprintFill.style.background = cooldown ? 'red' : 'lime';
+
+    velocity.x = direction.x * speed * 0.1;
+    velocity.z = direction.z * speed * 0.1;
+
+    const forward = new THREE.Vector3();
+    controls.getDirection(forward);
+    forward.y = 0;
+    forward.normalize();
+
+    const right = new THREE.Vector3();
+    right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+    const move = new THREE.Vector3();
+    move.addScaledVector(forward, -velocity.z);
+    move.addScaledVector(right, velocity.x);
+
+    const currentPos = controls.getObject().position.clone();
+    const tryX = currentPos.clone().add(new THREE.Vector3(move.x, 0, 0));
+    const tryZ = currentPos.clone().add(new THREE.Vector3(0, 0, move.z));
+
+    if (!checkCollisions(tryX)) controls.getObject().position.x = tryX.x;
+    if (!checkCollisions(tryZ)) controls.getObject().position.z = tryZ.z;
+
+    // Jumping & Gravity
+    const pos = controls.getObject().position;
+    const nextY = pos.y + velocityY;
+    const footPos = pos.clone(); footPos.y = nextY;
+
+    if (nextY <= 2) {
+      velocityY = 0;
+      isOnGround = true;
+      pos.y = 2;
+    } else {
+      velocityY -= 0.0015;
+      isOnGround = false;
+      pos.y = nextY;
+    }
+
+    if (isOnGround && keys['Space']) {
+      velocityY = 0.065;
+      isOnGround = false;
+    }
   }
 
   renderer.render(scene, camera);
