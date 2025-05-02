@@ -221,13 +221,13 @@ function animate() {
       isOnGround = true;
       pos.y = 2;
     } else {
-      velocityY -= 0.015; // gravity
+      velocityY -= 0.08; // gravity
       isOnGround = false;
       pos.y = nextY;
     }
 
     if (isOnGround && keys['Space']) {
-      velocityY = 0.3;
+      velocityY = 0.1;
       isOnGround = false;
     }
   }
