@@ -125,6 +125,7 @@ function createRoom() {
   scene.add(ceilMesh);
   collisionBoxes.push(new THREE.Box3().setFromObject(ceilMesh));
 
+  // Ensure all walls in the room have the texture
   createWall(1, 5, 20, -10, 2.5, 0, wallTex);
   createWall(1, 5, 20,  10, 2.5, 0, wallTex);
   createWall(20, 5, 1,  0, 2.5, -10, wallTex);
