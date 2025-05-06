@@ -55,7 +55,7 @@
 
 <script>
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
@@ -218,8 +218,8 @@ function animate() {
     sprintFill.style.width = (sprintAmount * 100) + "%";
     sprintFill.style.background = cooldown ? 'red' : 'lime';
 
-    velocity.x = direction.x * speed * 0.1;
-    velocity.z = direction.z * speed * 0.1;
+    velocity.x = direction.x * speed * delta;  // Apply delta time
+    velocity.z = direction.z * speed * delta;  // Apply delta time
 
     const forward = new THREE.Vector3();
     controls.getDirection(forward);
@@ -250,7 +250,7 @@ function animate() {
       isOnGround = true;
       pos.y = 2;
     } else {
-      velocityY -= 0.0015; // gravity
+      velocityY -= 0.0015 * delta; // gravity scaled with delta
       isOnGround = false;
       pos.y = nextY;
     }
