@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main]  # Replace with your default branch if different
 
 permissions:
   contents: read
@@ -17,9 +17,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Upload static site
-        uses: actions/upload-pages-artifact@v1
+        uses: actions/upload-pages-artifact@v3
         with:
-          path: .  # Adjust if your index.html is in a subfolder
+          path: .  # Adjust if your site files are in a subdirectory
 
   deploy:
     needs: build
@@ -31,4 +31,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v4
