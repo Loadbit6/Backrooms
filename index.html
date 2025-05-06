@@ -224,13 +224,13 @@ function animate() {
       isOnGround = true;
       pos.y = 2;
     } else {
-      velocityY -= 0.0015 / delta; // gravity, adjusted for delta
+      velocityY -= 0.0025 / delta; // gravity, adjusted for delta
       isOnGround = false;
       pos.y = nextY;
     }
 
     if (isOnGround && keys['Space']) {
-      velocityY = 0.065 / delta; // jump velocity
+      velocityY = 0.130 / delta; // jump velocity
       isOnGround = false;
     }
   }
