@@ -117,6 +117,7 @@ function createWall(w, h, d, x, y, z, material) {
 
 function createRoom() {
   createWall(20, 1, 20, 0, 0, 0, floorMat); // floor
+
   const ceilGeo = new THREE.PlaneGeometry(20, 20);
   const ceilMesh = new THREE.Mesh(ceilGeo, ceilMat);
   ceilMesh.rotation.x = Math.PI / 2;
@@ -143,10 +144,8 @@ const keys = {};
 document.addEventListener('keydown', e => keys[e.code] = true);
 document.addEventListener('keyup', e => keys[e.code] = false);
 
-const velocity = new THREE.Vector3();
 let velocityY = 0;
 let isOnGround = false;
-
 let sprintAmount = 1.0;
 let cooldown = false;
 const sprintFill = document.getElementById('sprintFill');
@@ -158,11 +157,10 @@ function checkCollisions(pos) {
 
 let lastTime = performance.now();
 function animate() {
-  const now = performance.now();
-  const delta = (now - lastTime) / 1000;
-  lastTime = now;
-
   requestAnimationFrame(animate);
+  const now = performance.now();
+  const delta = (now - lastTime) / 1000; // seconds
+  lastTime = now;
 
   if (controls.isLocked) {
     const direction = new THREE.Vector3();
@@ -173,18 +171,17 @@ function animate() {
     if (keys['KeyD']) direction.x += 1;
     direction.normalize();
 
-    let baseSpeed = 1;
-    let speed = baseSpeed;
+    let speed = 4.5;
     const sprinting = keys['ShiftLeft'] && sprintAmount > 0 && !cooldown;
     if (sprinting) {
-      speed = 1;
-      sprintAmount -= 0.5 * delta;
+      speed = 9;
+      sprintAmount -= 0.6 * delta;
       if (sprintAmount <= 0) {
         sprintAmount = 0;
         cooldown = true;
       }
     } else if (sprintAmount < 1.0) {
-      sprintAmount += (cooldown ? 0.25 : 0.5) * delta;
+      sprintAmount += (cooldown ? 0.2 : 0.5) * delta;
       if (sprintAmount >= 1.0) {
         sprintAmount = 1.0;
         cooldown = false;
@@ -194,6 +191,7 @@ function animate() {
     sprintFill.style.width = (sprintAmount * 100) + "%";
     sprintFill.style.background = cooldown ? 'red' : 'lime';
 
+    const velocity = new THREE.Vector3();
     velocity.x = direction.x * speed * delta;
     velocity.z = direction.z * speed * delta;
 
@@ -226,13 +224,13 @@ function animate() {
       isOnGround = true;
       pos.y = 2;
     } else {
-      velocityY -= 0.0015 * (delta * 1000);
+      velocityY -= 0.0015 / delta; // gravity, adjusted for delta
       isOnGround = false;
       pos.y = nextY;
     }
 
     if (isOnGround && keys['Space']) {
-      velocityY = 0.065 * 1000;
+      velocityY = 0.065 / delta; // jump velocity
       isOnGround = false;
     }
   }
