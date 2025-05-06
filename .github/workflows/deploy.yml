@@ -1,33 +1,34 @@
-name: Build and Deploy
+name: Deploy to GitHub Pages
 
 on:
   push:
     branches:
-      - main  # or 'master' if that's your default
+      - main  # or 'master'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - name: Upload to GitHub Pages
+        uses: actions/upload-pages-artifact@v1
         with:
-          node-version: '18'
+          path: .  # deploy everything in the repo root
 
-      - name: Install dependencies
-        run: npm install
+  deploy-to-pages:
+    needs: deploy
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
-      - name: Build project
-        run: npm run build
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: build-artifacts
-          path: |
-            dist/
-            build/
+    steps:
+      - name: Deploy
+        uses: actions/deploy-pages@v4.6.2
