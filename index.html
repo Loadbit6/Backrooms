@@ -32,11 +32,23 @@
       width: 100%;
       background: lime;
     }
+    #fpsCounter {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      font-family: monospace;
+      background: rgba(0,0,0,0.3);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
 <div id="instructions">Click to Start</div>
 <div id="sprintBar"><div id="sprintFill"></div></div>
+<div id="fpsCounter">FPS: 0</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/PointerLockControls.js"></script>
@@ -144,8 +156,10 @@ const keys = {};
 document.addEventListener('keydown', e => keys[e.code] = true);
 document.addEventListener('keyup', e => keys[e.code] = false);
 
+const velocity = new THREE.Vector3();
 let velocityY = 0;
 let isOnGround = false;
+
 let sprintAmount = 1.0;
 let cooldown = false;
 const sprintFill = document.getElementById('sprintFill');
@@ -155,12 +169,25 @@ function checkCollisions(pos) {
   return collisionBoxes.some(c => c.intersectsBox(box));
 }
 
+const fpsDisplay = document.getElementById('fpsCounter');
+let frames = 0;
+let fpsTime = performance.now();
 let lastTime = performance.now();
+
 function animate() {
   requestAnimationFrame(animate);
+
   const now = performance.now();
-  const delta = (now - lastTime) / 1000; // seconds
+  const delta = (now - lastTime) / 1000;
   lastTime = now;
+
+  // FPS Calculation
+  frames++;
+  if (now - fpsTime >= 1000) {
+    fpsDisplay.textContent = `FPS: ${frames}`;
+    frames = 0;
+    fpsTime = now;
+  }
 
   if (controls.isLocked) {
     const direction = new THREE.Vector3();
@@ -171,17 +198,17 @@ function animate() {
     if (keys['KeyD']) direction.x += 1;
     direction.normalize();
 
-    let speed = 4.5;
+    let speed = 0.25;
     const sprinting = keys['ShiftLeft'] && sprintAmount > 0 && !cooldown;
     if (sprinting) {
-      speed = 9;
-      sprintAmount -= 0.6 * delta;
+      speed = 0.5;
+      sprintAmount -= 0.01;
       if (sprintAmount <= 0) {
         sprintAmount = 0;
         cooldown = true;
       }
     } else if (sprintAmount < 1.0) {
-      sprintAmount += (cooldown ? 0.2 : 0.5) * delta;
+      sprintAmount += cooldown ? 0.005 : 0.01;
       if (sprintAmount >= 1.0) {
         sprintAmount = 1.0;
         cooldown = false;
@@ -191,9 +218,8 @@ function animate() {
     sprintFill.style.width = (sprintAmount * 100) + "%";
     sprintFill.style.background = cooldown ? 'red' : 'lime';
 
-    const velocity = new THREE.Vector3();
-    velocity.x = direction.x * speed * delta;
-    velocity.z = direction.z * speed * delta;
+    velocity.x = direction.x * speed * 0.1;
+    velocity.z = direction.z * speed * 0.1;
 
     const forward = new THREE.Vector3();
     controls.getDirection(forward);
@@ -216,7 +242,7 @@ function animate() {
 
     // Jumping & Gravity
     const pos = controls.getObject().position;
-    const nextY = pos.y + velocityY * delta;
+    const nextY = pos.y + velocityY;
     const footPos = pos.clone(); footPos.y = nextY;
 
     if (nextY <= 2) {
@@ -224,13 +250,13 @@ function animate() {
       isOnGround = true;
       pos.y = 2;
     } else {
-      velocityY -= 0.0015 / delta; // gravity, adjusted for delta
+      velocityY -= 0.0015; // gravity
       isOnGround = false;
       pos.y = nextY;
     }
 
     if (isOnGround && keys['Space']) {
-      velocityY = 0.065 / delta; // jump velocity
+      velocityY = 0.065;
       isOnGround = false;
     }
   }
